@@ -55,6 +55,8 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                     );
                     if trade_data.is_some() {
                         let td = trade_data.unwrap();
+                        let vault_a = td.vault_a.clone();
+                        let vault_b = td.vault_b.clone();
 
                         data.push(TradeData {
                             block_date: convert_to_date(timestamp),
@@ -90,6 +92,8 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                                 &pre_balances,
                                 &post_balances,
                             ),
+                            base_reserve: get_amt_reserve(&vault_a, &post_token_balances, &accounts),
+                            quote_reserve: get_amt_reserve(&vault_b, &post_token_balances, &accounts),
                         });
                     }
 
@@ -115,6 +119,8 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
 
                                     if trade_data.is_some() {
                                         let td = trade_data.unwrap();
+                                        let vault_a = td.vault_a.clone();
+                                        let vault_b = td.vault_b.clone();
 
                                         data.push(TradeData {
                                             block_date: convert_to_date(timestamp),
@@ -159,6 +165,8 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                                                 &pre_balances,
                                                 &post_balances,
                                             ),
+                                            base_reserve: get_amt_reserve(&vault_a, &post_token_balances, &accounts),
+                                            quote_reserve: get_amt_reserve(&vault_b, &post_token_balances, &accounts),
                                         });
                                     }
                                 },
@@ -506,6 +514,25 @@ fn get_amt(
         });
 
     return post_balance - pre_balance;
+}
+
+fn get_amt_reserve(
+    address: &String,
+    token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> f64 {
+    let index = accounts.iter().position(|r| r == address).unwrap();
+
+    let mut balance: f64 = 0 as f64;
+
+    token_balances
+        .iter()
+        .filter(|token_balance| token_balance.account_index == index as u32)
+        .for_each(|token_balance: &TokenBalance| {
+            balance = token_balance.ui_token_amount.clone().unwrap().ui_amount;
+        });
+
+        return balance;
 }
 
 fn get_signer_balance_change(pre_balances: &Vec<u64>, post_balances: &Vec<u64>) -> i64 {

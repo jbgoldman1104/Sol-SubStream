@@ -48,5 +48,9 @@ pub struct TradeData {
     pub txn_fee: u64,
     #[prost(int64, required, tag="20")]
     pub signer_sol_change: i64,
+    #[prost(double, required, tag="21")]
+    pub base_reserve: f64,
+    #[prost(double, required, tag="22")]
+    pub quote_reserve: f64,
 }
 // @@protoc_insertion_point(module)
