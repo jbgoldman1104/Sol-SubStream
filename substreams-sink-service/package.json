@@ -1,0 +1,44 @@
+{
+  "name": "substreams-sink-template",
+  "version": "0.0.1",
+  "description": "Substreams Sink Template",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "substreams-sink-template": "dist/bin/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "substreams",
+    "firehose",
+    "thegraph",
+    "streamingfast",
+    "pinax"
+  ],
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsc && node ./dist/bin/cli.js run",
+    "test": "node ./dist/bin/cli.js run -e mainnet.sol.streamingfast.io:443  --manifest /root/goldman/Sol-SubStream/dex-trades/substreams.yaml --module-name map_block -s 138616676 -t +1",
+    "build": "tsc",
+    "rollup": "rollup --config rollup.config.mjs",
+    "linux": "npm run build && npm run rollup && ./scripts/build.linux.sh",
+    "macos": "npm run build && npm run rollup && ./scripts/build.macos.sh",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "substreams-sink": "latest"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "latest",
+    "@rollup/plugin-json": "latest",
+    "@rollup/plugin-node-resolve": "latest",
+    "@tsconfig/recommended": "latest",
+    "rollup": "latest",
+    "typescript": "latest",
+    "@types/node": "latest"
+  }
+}

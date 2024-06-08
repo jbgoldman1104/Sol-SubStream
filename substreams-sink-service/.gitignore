@@ -1,0 +1,17 @@
+*.spkg
+node_modules
+Cargo.lock
+target
+*.js
+*-linux
+*-macos
+*-win.exe
+*-x64
+*-arm64
+*-x64.exe
+dist
+*.log
+data
+build
+cursor.lock
+.env
