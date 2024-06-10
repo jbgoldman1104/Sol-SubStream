@@ -1,19 +1,19 @@
 {
-    "extends": "@tsconfig/recommended/tsconfig.json",
-    "compilerOptions": {
-        "target": "ESNext",
-        "outDir": "dist",
-        "module": "nodenext",
-        "moduleResolution": "nodenext",
-        "resolveJsonModule": true,
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "verbatimModuleSyntax": true,
-    },
-    "include": [
-        "index.ts",
-        "src/**/*",
-        "bin/**/*",
-    ]
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+      "target": "ESNext",
+      "outDir": "dist",
+      "module": "nodenext",
+      "moduleResolution": "nodenext",
+      "resolveJsonModule": true,
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true,
+      "verbatimModuleSyntax": true,
+  },
+  "include": [
+      "index.ts",
+      "src/**/*",
+      "bin/**/*",
+  ]
 }
