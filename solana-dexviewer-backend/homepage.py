@@ -32,6 +32,7 @@ html_content = """
       var limit = 20;
       var pair = '';
       var txsort = 'blockTime';
+      var curPage = 1;
       
       var idle = true;
       
@@ -49,26 +50,7 @@ html_content = """
 
         return `${leadingDigits}...${trailingDigits}`; // Concatenate the leading and trailing digits with '...' in between
       }
-      function formatNumber(num) {
-        if (num < 0.01) return num;
-        num = Number(Number(num).toFixed(2));
-        if (Math.abs(num) >= 1000000000) {
-            return (num / 1000000000).toFixed(1) + "B"; // Brillion
-        }
-        else if (Math.abs(num) >= 1000000) {
-            return (num / 1000000).toFixed(1) + "M"; // Millions
-        } else if (Math.abs(num) >= 1000) {
-            return (num / 1000).toFixed(1) + "K"; // Thousands
-        }
-        num = num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-        return num; // Return the formatted number with commas and decimal places
-      }
-      function formatPrice(num) {
-          if (Math.abs(num) < 1e-5) {
-            return num.toExponential(4)
-          } else return formatNumber(num);
-      }
+     
       function formatDate(num) {
         const options = {
             month: 'short',
@@ -90,10 +72,12 @@ html_content = """
       
       function setPair(v) {
           pair = v;
+          curPage = 2;
           fetchTransactions()
       }
       function setTxSort(v) {
           txsort= v;
+          curPage = 2;
           fetchTransactions()
       }
       
@@ -105,17 +89,51 @@ html_content = """
           limit = v;
           fetchStatistics()
       }
+      function f(num) {
+        // Convert number to string and split into integer and fractional parts
+        num = Number(Number(num).toPrecision(4))
+
+        if (Math.abs(num) >= 1e9) {
+            return (num / 1e9).toFixed(1) + "B"; // Brillion
+        } else if (Math.abs(num) >= 1e6) {
+            return (num / 1e6).toFixed(1) + "M"; // Millions
+        } else if (Math.abs(num) >= 1e3) {
+            return (num / 1e3).toFixed(1) + "K"; // Thousands
+        } else if (Math.abs(num) >= 0.1) {
+            return num;
+            //return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        else if (num < 0.1) {
+            diff = 0;
+            if (num < 0.000001) {
+                num *= 1e5;
+                diff = 5;
+            }
+            let [integerPart, fractionalPart] = num.toFixed(12).toString().split('.');
+            match = fractionalPart.match(/^0+/);
+            let leadingZeros = match[0].length + diff;
+            let subscriptChar = leadingZeros.toString().split('').map(char => String.fromCharCode(char.charCodeAt(0) + 8272)).join('');
+            return `${integerPart}.0${subscriptChar}${fractionalPart.slice(leadingZeros)}`;
+        }
+        return num;
+    };
+
+      
+      function togglePage() {
+          curPage = 3 - curPage;
+      }
       function fetchTransactions() {
           if (!idle || pair == undefined || pair == '') return;
           idle = false;
           count ++;
         document.getElementById('count').innerHTML = 'request: ' + count;
-        fetch('/tx/?pair='+pair +'&sort='+txsort +'&skip='+skip +'&limit='+limit +'')
+        fetch('/tx/query?pair='+pair +'&sort='+txsort +'&skip='+skip +'&limit='+limit +'')
           .then(response => response.json())
           .then(data => {
             idle = true;
             var html = '';
-            html += '<div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold">\\
+            html += '<button class="flex items-center justify-center text-[15px] ml-4" onclick="togglePage()">Back...</button>\\
+                    <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold">\\
                             <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\\'blockTime\\');"> DATE(GMT) </a>\\
                             <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\\'type\\');"> TYPE </a>\\
                             <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\\'volume\\');"> USD </a>\\
@@ -127,13 +145,13 @@ html_content = """
             for(var i = 0; i < data["data"].length; i++) {
                 row = data["data"][i]
                 html += '<div class="data_row hover:bg-[#555] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">'+
-                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-center text-[#2E2E33] text-right"> '+ formatDate(row['date']) +'</div>\\
+                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> '+ formatDate(row['date']) +'</div>\\
                             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[120px] h-[35px] pr-2 justify-center '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">'+ row['type'] +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ formatNumber(row['usd']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">'+ formatNumber(row['baseAmount']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-center">'+ formatNumber(row['quoteAmount']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">$ '+ formatNumber(row['price']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[180px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ formatString(row['maker']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ f(row['usd']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">'+ f(row['baseAmount']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-center">'+ f(row['quoteAmount']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">$ '+ f(row['price']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[180px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ (row['txId']) +'</div>\\
                         </div>';
                 
             }
@@ -149,7 +167,7 @@ html_content = """
           idle = false;
         count ++;
         document.getElementById('count').innerHTML = 'request: ' + count;
-        fetch('/st/?duration='+duration +'&sort='+sort +'&skip='+skip +'&limit='+limit +'')
+        fetch('/st/query?duration='+duration +'&sort='+sort +'&skip='+skip +'&limit='+limit +'')
           .then(response => response.json())
           .then(data => {
             idle = true;
@@ -167,7 +185,7 @@ html_content = """
             for(var i = 0; i < data.length; i++) {
                 row = data[i]
                 st = row['st'+duration];
-                html += '<div class="data_row flex hover:bg-[#555] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\\''+ row['baseMint'] +'/'+ row['quoteMint'] +'\\')">'+
+                html += '<div class="data_row flex hover:bg-[#888] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\\''+ row['baseMint'] +'/'+ row['quoteMint'] +'\\')">'+
                             '<div class="data_cell flex items-center border border-solid border-t-[transparent] pl-3 border-[white] w-[330px] h-[35px] pr-2 justify-start text-center">'+
                                 '<div class="font-bold">'+ (row['baseSymbol'] == '' ? formatString(row['baseMint']) : row['baseSymbol']) +'</div>'+
                                 '<div class="mr-3 text-[#888]"> / '+ (row['quoteSymbol'] == '' ? formatString(row['quoteMint']) : row['quoteSymbol']) +'</div>'+
@@ -175,13 +193,13 @@ html_content = """
                                     '<img src="'+ row['baseImage'] + '" style="width:20px; margin-right: 5px;">' + row['baseName'] +
                                 '</div>'+
                             '</div>'+
-                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end text-right">$ '+ formatPrice(row['price']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ formatNumber(st['txns']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[170px] h-[35px] pr-2 justify-end text-right">$ '+ formatNumber(st['volume']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ formatNumber(st['makers']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[130px] h-[35px] pr-2 justify-center text-center">'+ formatNumber(Number(st['d_price']).toFixed(1)) * 100 +'%</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ formatNumber(row['liq']) +'</div>\\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ formatNumber(row['mcap']) +'</div>\\
+                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['price']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ f(st['txns']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[170px] h-[35px] pr-2 justify-end text-right">$ '+ f(st['volume']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ f(st['makers']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[130px] h-[35px] pr-2 justify-center text-center">'+ f(Number(st['d_price']).toFixed(3) * 100) +'%</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['liq']) +'</div>\\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['mcap']) +'</div>\\
                         </div>';
                 
             }
@@ -193,8 +211,15 @@ html_content = """
           });
       }
 
+      function fetchData() {
+          if (curPage == 1)
+            fetchStatistics();
+          else
+            fetchTransactions();
+      }
+      
       fetchStatistics();
-      setInterval(fetchStatistics, 1000);
+      setInterval(fetchData, 1000);
     </script>
 </html>
 """

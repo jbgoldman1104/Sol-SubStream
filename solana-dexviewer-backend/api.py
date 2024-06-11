@@ -38,11 +38,11 @@ async def homepage():
 # async def root():
 #     return {"message": "Hello World"}
 
-@app.get("/st/")
+@app.get("/st/query")
 async def read_st(duration: int = 0, sort = "score", skip: int = 0, limit: int = 10):
     return query_redis.query_st(duration, sort, skip, limit)
 
-@app.get("/tx/")
+@app.get("/tx/query")
 def read_tx(pair: str = "", sort: str = "blockTime", direction: str = "desc", skip: int = 0, limit: int  = 10):
     return query_redis.query_tx(pair, sort, direction, skip, limit)
 

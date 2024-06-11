@@ -8,6 +8,22 @@ r = common.connect_redis()
 conn = common.connect_db()
 cur = conn.cursor()
 
+def convert_to_custom_format(number):
+    # Convert number to string and split into integer and fractional parts
+    integer_part, fractional_part = str(number).split('.')
+    
+    # Check how many leading zeros in the fractional part
+    leading_zeros = len(fractional_part) - len(fractional_part.lstrip('0'))
+    
+    # Get the subscript character for the number of leading zeros
+    subscript_char = ''.join(chr(8272 + int(digit)) for digit in str(leading_zeros))
+    
+    # Construct the final string with the custom format
+    result = f"{integer_part}.0{subscript_char}{fractional_part[leading_zeros:]}"
+    
+    return result
+
+
 def query_st(duration: int = 0, sort: str = "score", skip: int = 0, limit: int = 100):
     rank = r.zrevrange(f"SS_PS{duration}", skip, skip + limit - 1)
     # print(rank)
@@ -61,11 +77,12 @@ def query_tx(pair: str = "", sort: str = "blockTime", direction = "desc", skip: 
         data.append({
             "date": row['blockTime'],
             "type": row['type'], 
-            "usd": 0 if row['price'] == 0 else row['baseAmount'] * row['price'],
+            "usd": 0 if row['price'] == 0 else abs(row['baseAmount'] * row['price']),
             "baseAmount": row['baseAmount'],
             "quoteAmount": row['quoteAmount'],
             "price": row['price'],
             "maker": row['signer'],
+            "txId": row['txId'],
         })
     
     split = pair.split('/')

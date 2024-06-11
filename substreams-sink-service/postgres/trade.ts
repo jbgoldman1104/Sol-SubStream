@@ -34,7 +34,7 @@ export async function initialize() {
 
 export async function insertTrades(message: any) {
     try {
-        console.log('insertTrades :>> ', message?.data[0].blockSlot);
+        console.log('insertTrades :>> ', message?.data[0].blockSlot, message?.data[0].blockTime);
         // console.log('insertTrades :>> ', message?.data[0]);
         TradeDataMap(database);
         TradeData.bulkCreate(message?.data)

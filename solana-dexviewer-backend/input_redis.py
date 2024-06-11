@@ -33,7 +33,7 @@ def update_thread():
     rep = 1
     
     while True:
-        time.sleep(1)
+        time.sleep(0.01)
         
         t_start = datetime.datetime.now()
 
@@ -217,10 +217,11 @@ def update_thread():
 
         for i in range(4):
             for p in p_replace.keys():
-                d_price = p_replace[p][f"st{i}"]['d_price']
-                d_price_affect = (d_price if d_price > 1 else 1 if d_price == 0 else 1 / d_price)
-                score = p_replace[p][f'st{i}']['txns'] / 10000 * p_replace[p][f'st{i}']['volume'] / 10000 * d_price_affect * d_price_affect * d_price_affect
-                score *= 1.0 / (common.now() + 1 - p_replace[p]['created'])
+                # d_price = p_replace[p][f"st{i}"]['d_price']
+                # d_price_affect = (d_price if d_price > 1 else 1 if d_price == 0 else 1 / d_price)
+                # score = p_replace[p][f'st{i}']['txns'] / 10000 * p_replace[p][f'st{i}']['volume'] / 10000 * d_price_affect * d_price_affect * d_price_affect
+                # score *= 1.0 / (common.now() + 1 - p_replace[p]['created'])
+                score = p_replace[p][f'st{i}']['volume']
                 p_replace[p][f'st{i}']['score'] = score    # TODO score algorithm
         
         r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_replace.values()])

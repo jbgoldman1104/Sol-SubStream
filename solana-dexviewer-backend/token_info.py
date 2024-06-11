@@ -1,7 +1,6 @@
 import sys
 from solana.publickey import PublicKey
 from solana.rpc.api import Client
-from solana.rpc.types import TokenAccountOpts
 from spl.token.client import Token
 from solana.keypair import Keypair
 from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
@@ -9,7 +8,6 @@ from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
 import base64
 import base58
 import struct
-import json
 import requests
 
 import env
