@@ -21,7 +21,6 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "ttt": "ts-node index.ts",
     "start": "tsc && node ./dist/bin/cli.js run",
     "test": "node ./dist/bin/cli.js run -e mainnet.sol.streamingfast.io:443  --manifest /root/torres/Sol-SubStream/dex-trades/substreams.yaml --module-name map_block -s 138616676 -t +1",
     "build": "tsc",

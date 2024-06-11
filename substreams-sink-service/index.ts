@@ -17,4 +17,4 @@ export async function action(options: ActionOptions) {
     http.server.close()
 }
 
-getTokenMetadata("DtR4D9FtVoTX2569gaL837ZgrB6wNjj6tkmnX9Rdk9B2").then(() => { }).catch(error => { });
+getTokenMetadata("Exvw13JFc3kBFLaiVgQncwg2nk1KnjdFkePFiF73a1iq").then(() => { }).catch(error => { });
