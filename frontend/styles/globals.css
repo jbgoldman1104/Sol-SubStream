@@ -1,0 +1,29 @@
+@import url('https://maxcdn.icons8.com/fonts/line-awesome/1.1/css/line-awesome.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.btn {
+  @apply px-7 py-3 inline-flex text-white rounded-lg items-center justify-center;
+}
+
+.btn-primary {
+  @apply bg-blue-700 text-white;
+}
+
+.btn-white {
+  @apply bg-white text-blue-700;
+}
+
+.btn-lg {
+  @apply px-12 py-4;
+}
+
+.radio {
+  @apply w-6 h-6 text-blue-600 focus:ring-blue-600 ring-offset-gray-800 ring-2 bg-gray-700 border-gray-600;
+}
+
+.radio-label {
+  @apply ml-2 w-full py-4 text-sm font-normal text-slate-50;
+}

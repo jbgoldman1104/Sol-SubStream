@@ -4,7 +4,7 @@ import psycopg
 import redis
 import datetime
 from random import randint as rdi
-import token_info
+# import token_info
 
 def connect_redis():
     return redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT)
@@ -30,7 +30,8 @@ def toP(row: tuple):
                 "st1": {"r": row[14], "score": row[15], "txns": row[16], "volume": row[17], "makers": row[18], "d_price": row[19], "prevVolume": row[20], "prevAmount": row[21], "prevPrice": row[22]},
                 "st2": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28], "prevVolume": row[29], "prevAmount": row[30], "prevPrice": row[31]},
                 "st3": {"r": row[32], "score": row[33], "txns": row[34], "volume": row[35], "makers": row[36], "d_price": row[37], "prevVolume": row[38], "prevAmount": row[39], "prevPrice": row[40]},
-                "baseMint": row[41], "quoteMint": row[42], "created": row[43],
+
+                "baseMint": row[41], "quoteMint": row[42], "poolAddress": row[43], "created": row[44],
                 })
 
 def toTx(cur, r, row: tuple):
@@ -41,7 +42,7 @@ def toTx(cur, r, row: tuple):
                                       "baseAmount": row[9], "quoteAmount": row[10], "outerProgram": row[11], "innerProgram": row[12],
                                       "baseReserve": row[13], "quoteReserve": row[14], 
                                       # new fields
-                                      "pid": pairToId(cur, r, f'{row[7]}/{row[8]}'), "type": "Buy" if row[9] > 0 else "Sell", "price": 0,
+                                      "pid": poolToId(cur, r, row[6], f'{row[7]}/{row[8]}'), "type": "Buy" if row[9] > 0 else "Sell", "price": 0,
                                       
                                       })
     else:
@@ -101,24 +102,30 @@ def mintToId(cur, r, mint: str):
         # print(f"new mint {mint} => {id}")
         r.hset('H_T', mint, id)
         r.json().mset([toT((f'{id}', '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', ''))])
-        token_info.update_nft(cur, r, id, mint)
+        # token_info.update_nft(cur, r, id, mint)
+        r.xadd('TOKEN_STREAM', {id: mint})
         # TODO sync with PG
     else:
         id = int(id.decode())
     return id
 
-def pairToId(cur, r, pair: str):
-    id = r.hget('H_P', pair)
+def getMintAddresses(r, pool):
+    pair = r.hget('H_P2M', pool)
+    return pair.decode().split('/') if pair else []
+
+def poolToId(cur, r, pool: str, pair: str ):
+    id = r.hget('H_P', pool)
     if not id:
         id = r.hlen('H_P') + 1
-        r.hset('H_P', pair, id)
+        r.hset('H_P', pool, id)
         split = pair.split('/')
+        r.hset('H_P2M', pool, pair)
         newP = toP((f'{id}', 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        split[0], split[1], now()))
+                        split[0], split[1], pool, now()))
         r.json().mset([newP])
         for i in range(4):
             r.zadd(f"SS_PS{i}", {newP[2]["id"] : newP[2][f"st{i}"]["score"]}) # type: ignore

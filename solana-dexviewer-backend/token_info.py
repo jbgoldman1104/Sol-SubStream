@@ -12,6 +12,9 @@ import requests
 
 import env
 import common
+import asyncio
+
+r = common.connect_redis()
 #TODO: get your own solana rpc node
 #devnet
 solana_client = Client(env.API_KEY)
@@ -103,7 +106,7 @@ def get_nft(id, mint_key):
             uri_data["twitter"] if "twitter" in uri_data else None, 
             uri_data["website"] if "website" in uri_data else None )
 
-def update_nft(cur, r, id, mint):
+async def update_nft(cur, r, id, mint):
     # print(f"start token info: {mint}")
     meta = get_nft(id, mint)
 
@@ -113,13 +116,24 @@ def update_nft(cur, r, id, mint):
     else:
         print(f"update_nft error: {mint}")
 
-async def test(mint):
-    meta = get_nft(11, mint)
-    print(meta)
+
+async def token_thread():
+    r.xtrim("TOKEN_STREAM", maxlen = 0)
     
+    curRequests = 0
+    
+    while True:
+        # await asyncio.sleep(500)
+        tokens = r.xread( streams = {"TOKEN_STREAM": 0}, block = 600000 )
+        
+
+
+
+
 
 if __name__ == "__main__":
-    print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
+    asyncio.run(token_thread())
+    # print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
     pass
 
 

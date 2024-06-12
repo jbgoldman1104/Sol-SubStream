@@ -21,7 +21,18 @@ from fastapi import FastAPI
 # from pydantic import BaseSettings
 from fastapi.responses import HTMLResponse
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title='Solana DexViewer')
+
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # redis
 # import redis
@@ -43,10 +54,10 @@ async def read_st(duration: int = 0, sort = "score", skip: int = 0, limit: int =
     return query_redis.query_st(duration, sort, skip, limit)
 
 @app.get("/tx/query")
-def read_tx(pair: str = "", sort: str = "blockTime", direction: str = "desc", skip: int = 0, limit: int  = 10):
-    return query_redis.query_tx(pair, sort, direction, skip, limit)
+def read_tx(pool: str = "", sort: str = "blockTime", direction: str = "desc", skip: int = 0, limit: int  = 10):
+    return query_redis.query_tx(pool, sort, direction, skip, limit)
 
 
 import uvicorn
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8009)
+    uvicorn.run(app, host="0.0.0.0", port=8009)

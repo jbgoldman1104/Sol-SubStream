@@ -54,6 +54,7 @@ def query_st(duration: int = 0, sort: str = "score", skip: int = 0, limit: int =
                 rlt[i]['quoteTwitter'] = ts[2*i+1]['twitter'] # type: ignore
                 rlt[i]['quoteWebsite'] = ts[2*i+1]['website'] # type: ignore
 
+
                 if not rlt[i]['baseImage']: rlt[i]['baseImage'] = '' # type: ignore
                 if not rlt[i]['quoteImage']: rlt[i]['quoteImage'] = '' # type: ignore
         return rlt
@@ -62,9 +63,9 @@ def query_st(duration: int = 0, sort: str = "score", skip: int = 0, limit: int =
     # TODO custom sort with PG
     # return r.json().mget(["token:T1111"], ".")
 
-def query_tx(pair: str = "", sort: str = "blockTime", direction = "desc", skip: int = 0, limit: int = 100):
+def query_tx(pool: str = "", sort: str = "blockTime", direction = "desc", skip: int = 0, limit: int = 100):
     if not str: return []
-    pid = r.hget('H_P', pair)
+    pid = r.hget('H_P', pool)
     if not pid: return []
     pid = pid.decode() # type: ignore
     q = Query(f'@pid:[{pid} {pid}]').paging(skip, limit).sort_by(sort, asc = False if direction == "desc" else True)
@@ -85,13 +86,15 @@ def query_tx(pair: str = "", sort: str = "blockTime", direction = "desc", skip: 
             "txId": row['txId'],
         })
     
-    split = pair.split('/')
+    # split = pair.split('/')
+    # TODO mintAddress.
+    split = common.getMintAddresses(r, pool)
     pids = r.hmget('H_T', [split[0], split[1]])
     pids = [item.decode() for item in pids] # type: ignore
     names = r.json().mget([f'T:{pids[0]}', f'T:{pids[1]}'], "$.symbol") # type: ignore
     rlt = {
-        "baseName": names[0] if names[0] else split[0],
-        "quoteName": names[1] if names[1] else split[1],
+        "baseName": names[0] if names[0] and names[0][0] else split[0],
+        "quoteName": names[1] if names[1] and names[1][0] else split[1],
         "data": data
     }
     return rlt
