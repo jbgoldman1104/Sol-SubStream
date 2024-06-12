@@ -232,8 +232,10 @@ def update_thread():
         # TODO sync with PG
         
         r.xadd("UPDATE_RANK", {"date": str(datetime.datetime.now())})
-        print(f"-- Input Redis ---({rep}): replace: {len(p_replace)} => {(datetime.datetime.now() - t_start).total_seconds()} s")
+        print(f'-- Input Redis ---({rep}): blockId: {new_txs[0][2]["blockSlot"]} => {(datetime.datetime.now() - t_start).total_seconds()} s')
         rep += 1
+        
+        conn.commit()
       
     conn.close()
     

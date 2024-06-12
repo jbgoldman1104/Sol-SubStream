@@ -103,7 +103,8 @@ def mintToId(cur, r, mint: str):
         r.hset('H_T', mint, id)
         r.json().mset([toT((f'{id}', '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', ''))])
         # token_info.update_nft(cur, r, id, mint)
-        r.xadd('TOKEN_STREAM', {id: mint})
+        # r.xadd('TOKEN_STREAM', {id: mint})
+        r.lpush('L_TOKENS', f'{id},{mint}')
         # TODO sync with PG
     else:
         id = int(id.decode())

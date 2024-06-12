@@ -127,7 +127,7 @@ html_content = """
           idle = false;
           count ++;
         document.getElementById('count').innerHTML = 'request: ' + count;
-        fetch('/tx/query?pair='+pair +'&sort='+txsort +'&skip='+skip +'&limit='+limit +'')
+        fetch('/tx/query?pool='+pair +'&sort='+txsort +'&skip='+skip +'&limit='+limit +'')
           .then(response => response.json())
           .then(data => {
             idle = true;
@@ -185,7 +185,7 @@ html_content = """
             for(var i = 0; i < data.length; i++) {
                 row = data[i]
                 st = row['st'+duration];
-                html += '<div class="data_row flex hover:bg-[#888] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\\''+ row['baseMint'] +'/'+ row['quoteMint'] +'\\')">'+
+                html += '<div class="data_row flex hover:bg-[#888] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\\''+ row['poolAddress']  +'\\')">'+
                             '<div class="data_cell flex items-center border border-solid border-t-[transparent] pl-3 border-[white] w-[330px] h-[35px] pr-2 justify-start text-center">'+
                                 '<div class="font-bold">'+ (row['baseSymbol'] == '' ? formatString(row['baseMint']) : row['baseSymbol']) +'</div>'+
                                 '<div class="mr-3 text-[#888]"> / '+ (row['quoteSymbol'] == '' ? formatString(row['quoteMint']) : row['quoteSymbol']) +'</div>'+

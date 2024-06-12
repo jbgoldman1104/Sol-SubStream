@@ -13,6 +13,7 @@ import requests
 import env
 import common
 import asyncio
+import aiohttp
 
 r = common.connect_redis()
 #TODO: get your own solana rpc node
@@ -106,7 +107,7 @@ def get_nft(id, mint_key):
             uri_data["twitter"] if "twitter" in uri_data else None, 
             uri_data["website"] if "website" in uri_data else None )
 
-async def update_nft(cur, r, id, mint):
+async def update_nft(id, mint):
     # print(f"start token info: {mint}")
     meta = get_nft(id, mint)
 
@@ -115,21 +116,36 @@ async def update_nft(cur, r, id, mint):
         r.json().mset([common.toT(meta)])
     else:
         print(f"update_nft error: {mint}")
+    # r.lpop('L_TOKEN_REQUEST')
 
 
 async def token_thread():
-    r.xtrim("TOKEN_STREAM", maxlen = 0)
+    # r.xtrim("TOKEN_STREAM", maxlen = 0)
     
+    session = aiohttp.ClientSession()
+
     curRequests = 0
+    tasks = []
     
     while True:
-        # await asyncio.sleep(500)
-        tokens = r.xread( streams = {"TOKEN_STREAM": 0}, block = 600000 )
-        
-
-
-
-
+        # tokens = r.xread( streams = {"TOKEN_STREAM": 0}, block = 600000 )
+        cmd = r.brpop('L_TOKENS')[1].decode()
+        print(r.llen('L_TOKENS'))
+        # if cmd == 'QUIT':
+            # while r.llen('L_TOKEN_REQUEST') > 0:
+                # asyncio.sleep(0.1)
+            # break
+        split = cmd.split(',')
+        # print(r.llen('L_TOKEN_REQUEST'))
+        # while r.llen('L_TOKEN_REQUEST') > env.NUM_REQUESTS:
+            # await asyncio.sleep(0.2)
+        tasks.append(asyncio.create_task(update_nft(int(split[0]), split[1])))
+        # r.lpush('L_TOKEN_REQUEST', int(split[0]))
+        # await temp
+        print(len(tasks))
+        while len(tasks) >= env.NUM_REQUESTS:
+            await tasks[0]
+            tasks.pop(0)
 
 if __name__ == "__main__":
     asyncio.run(token_thread())

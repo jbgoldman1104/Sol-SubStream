@@ -16,5 +16,6 @@ NTEST = 20
 USE_PG = True
 USE_P_TABLE = False
 DB_READ_SIZE = 100
+NUM_REQUESTS = 8
 
-API_KEY = "https://mainnet.helius-rpc.com/?api-key=e4226aa3-24f7-43c1-869f-a1b1e3fbb148"
+API_KEY = "https://rpc.hellomoon.io/00f4178d-d782-4d0e-ac29-02706daa7be2"
