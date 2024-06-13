@@ -47,14 +47,14 @@ def update_thread():
         blk_value = ''
         if env.USE_PG:
             # - import TX table from PG -
-            readTxId = common.getSyncValue(cur, "readTxId", 0)
-            cur.execute("SELECT * FROM trade WHERE id > %s", [readTxId])
+            read_tx_id = common.getSyncValue(cur, "read_tx_id", 0)
+            cur.execute("SELECT * FROM trade WHERE id > %s", [read_tx_id])
             rows = cur.fetchmany(env.DB_READ_SIZE)
             new_txs = [common.toTx(cur, r, row) for row in rows]
             if len(new_txs) == 0: continue
             # r.json().mset(new_txs) # type: ignore
-            readTxId = new_txs[len(new_txs)-1][2]["id"]
-            common.setSyncValue(cur, "readTxId", readTxId)
+            read_tx_id = new_txs[len(new_txs)-1][2]["id"]
+            common.setSyncValue(cur, "read_tx_id", read_tx_id)
             new_tx_count = len(rows)
         else:
             new_tx_count = 3

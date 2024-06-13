@@ -45,6 +45,50 @@ def init_redis():
     path = "."
     now = common.now()
     
+    
+    
+    # --- Check PG Table Existence ---
+    # sync
+    cur.execute("SELECT * FROM information_schema.tables WHERE table_name=%s", ('sync',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE sync (
+                read_tx_id integer,
+                read_p_id integer
+                )
+            """)
+        conn.commit()
+    cur.execute("SELECT * FROM sync", [])
+    if not bool(cur.rowcount):
+        cur.execute("INSERT INTO sync (read_tx_id, read_p_id) VALUES (%s, %s)", (0, 0))
+        conn.commit()
+    
+    # trade
+    cur.execute("SELECT * FROM information_schema.tables WHERE table_name=%s", ('trade',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE trade (
+                "id" int8 NOT NULL DEFAULT nextval('trade_id_seq'::regclass),
+                "blockDate" timestamptz(6),
+                "blockTime" int4,
+                "blockSlot" int4,
+                "txId" varchar(90) COLLATE "pg_catalog"."default",
+                "signer" varchar(45) COLLATE "pg_catalog"."default",
+                "poolAddress" varchar(45) COLLATE "pg_catalog"."default",
+                "baseMint" varchar(45) COLLATE "pg_catalog"."default",
+                "quoteMint" varchar(45) COLLATE "pg_catalog"."default",
+                "baseAmount" float8,
+                "quoteAmount" float8,
+                "outerProgram" varchar(45) COLLATE "pg_catalog"."default",
+                "innerProgram" varchar(45) COLLATE "pg_catalog"."default",
+                "baseReserve" float8,
+                "quoteReserve" float8
+                )
+            """)
+        conn.commit()
+        
+    
+    
     # --- Import P:, SS_PS ---
     # --- Import TX, EN_TX ---
 
@@ -52,30 +96,30 @@ def init_redis():
     # r.sadd('EN_TX', *[t[2]["id"] for t in txs])
     pairs = []
     txs = []
-    readTxId = 0
-    readPId = 0
+    read_tx_id = 0
+    read_p_id = 0
     if env.USE_PG:
         # - import TX table from PG -
-        # readTxId = common.getSyncValue(cur, "readTxId", 0)
-        # cur.execute("SELECT * FROM trade WHERE id > %s", [readTxId])
+        # read_tx_id = common.getSyncValue(cur, "read_tx_id", 0)
+        # cur.execute("SELECT * FROM trade WHERE id > %s", [read_tx_id])
         # while True:
         #     rows = cur.fetchmany(env.DB_READ_SIZE)
         #     txs = [common.toTx(row) for row in rows]
         #     r.json().mset(txs) # type: ignore
-        #     readTxId = txs[len(txs)-1][2]["id"]
+        #     read_tx_id = txs[len(txs)-1][2]["id"]
         #     if len(rows) < env.DB_READ_SIZE: break
 
         # - import T table from PG -
         # TODO make tokens table to PG and Load
         if env.USE_P_TABLE:
-            readPId = common.getSyncValue(cur, "readPId", 0)
-            cur.execute("SELECT * FROM pairs WHERE id > %s", [readPId])
+            read_p_id = common.getSyncValue(cur, "read_p_id", 0)
+            cur.execute("SELECT * FROM pairs WHERE id > %s", [read_p_id])
             while True:
                 rows = cur.fetchmany(env.DB_READ_SIZE)
                 pairs = [common.toP(row) for row in rows]
                 r.json().mset(pairs) # type: ignore
                 # r.hmset('H_T', {})    # TODO
-                readPId = pairs[len(pairs)-1][2]["id"]
+                read_p_id = pairs[len(pairs)-1][2]["id"]
                 for i in range(4):
                     r.zadd(f"SS_PS{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
                 if len(rows) < env.DB_READ_SIZE: break
@@ -130,9 +174,9 @@ def init_redis():
                         definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["TX:"]))
     
     
-    common.setSyncValue(cur, "readTxId", readTxId)
+    common.setSyncValue(cur, "read_tx_id", read_tx_id)
     if env.USE_P_TABLE:
-        common.setSyncValue(cur, "readPId", readPId)
+        common.setSyncValue(cur, "read_p_id", read_p_id)
 
     conn.commit()
     conn.close()
