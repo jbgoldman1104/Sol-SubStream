@@ -13,6 +13,7 @@ export default class TradeData extends Model {
   public quoteMint!: string
   public baseAmount!: number
   public quoteAmount!: number
+  public instructionType?: string
   public outerProgram?: string
   public innerProgram?: string
   public baseReserve!: number
@@ -55,6 +56,10 @@ export const TradeDataMap = (sequelize: Sequelize) => {
     },
     quoteAmount: {
       type: DataTypes.FLOAT
+    },
+    instructionType: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     },
     outerProgram: {
       type: DataTypes.STRING(45),

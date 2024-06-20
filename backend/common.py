@@ -56,11 +56,11 @@ def getPNames(r, p):
 
 def toTx(cur, r, row: tuple):
     if env.USE_PG:
-        assert len(row) == 15
+        assert len(row) == 16
         return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2] * 1000, "blockSlot": row[3],
                                       "txId": row[4], "signer": row[5], "poolAddress": row[6], "baseMint": row[7], "quoteMint": row[8],
-                                      "baseAmount": row[9], "quoteAmount": row[10], "outerProgram": row[11], "innerProgram": row[12],
-                                      "baseReserve": row[13], "quoteReserve": row[14], 
+                                      "baseAmount": row[9], "quoteAmount": row[10], "instructionType": row[11],
+                                      "outerProgram": row[12], "innerProgram": row[13], "baseReserve": row[14], "quoteReserve": row[15], 
                                       # new fields
                                       "pid": poolToId(cur, r, row[6], f'{row[7]}/{row[8]}'), "type": "Buy" if row[9] > 0 else "Sell", "price": 0,
                                       

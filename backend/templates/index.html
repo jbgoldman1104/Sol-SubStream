@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+    <title>Data Test</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/common.js"></script>
+</head>
+<body class="flex items-center justify-center w-screen h-screen bg-[black]">
+    <div class="text-white bg-[#0d0d0d] w-full h-full">
+        <div class="flex flex-row items-center justify-center mx-auto p-3">
+            <div id="count" class="text-[16px]"></div>
+            <div class="flex flex-row items-left px-3 ml-3">
+                <a class="text-[16px] w-[40px] hover:font-bold" href="javascript:setDuration(0);">5M</a>
+                <a class="text-[16px] w-[40px] hover:font-bold" href="javascript:setDuration(1);">1H</a>
+                <a class="text-[16px] w-[40px] hover:font-bold" href="javascript:setDuration(2);">6H</a>
+                <a class="text-[16px] w-[40px] hover:font-bold" href="javascript:setDuration(3);">24H</a>
+            </div>
+        </div>
+        <div class="flex flex-col items-center justify-center px-3">
+            <div id="data-table" class="flex flex-col"></div>
+        </div>
+    </div>
+</body>
+<script type="text/javascript">
+      var count = 0;
+      var duration = 0;
+      var sort = 'score';
+      var skip = 0;
+      var limit = 10;
+      
+      var idle = true;
+      
+      function setDuration(v) {
+          duration = v;
+          fetchData();
+      }
+      function setSort(v) {
+          sort = v;
+          fetchData();
+      }
+      function setSkip(v) {
+          skip = v;
+          fetchData();
+      }
+      function setLimit(v){
+          limit = v;
+          fetchData()
+      }
+      function setPair(v){
+        location.href = '/trade/' + v
+      }
+      function fetchData() {
+          if (!idle) return;
+          idle = false;
+        count ++;
+        document.getElementById('count').innerHTML = 'request: ' + count;
+        fetch('/api/st/query?duration='+duration +'&sort='+sort +'&skip='+skip +'&limit='+limit +'')
+          .then(response => response.json())
+          .then(data => {
+            idle = true;
+            var html = '';
+            html += '<div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px]">\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[330px] h-[40px] text-center font-bold" href="javascript:setSort(\'score\');"> pair </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[250px] h-[40px] text-center font-bold" href="javascript:setSort(\'price\');"> price </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[110px] h-[40px] text-center font-bold" href="javascript:setSort(\'txns\');"> txns </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[170px] h-[40px] text-center font-bold" href="javascript:setSort(\'volume\');"> volume </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[110px] h-[40px] text-center font-bold" href="javascript:setSort(\'makers\');"> makers </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[130px] h-[40px] text-center font-bold" href="javascript:setSort(\'d_price\');"> price ratio </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[150px] h-[40px] text-center font-bold" href="javascript:setSort(\'liq\');"> liquidity </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[150px] h-[40px] text-center font-bold" href="javascript:setSort(\'mcap\');"> market cap </a>\
+                        </div>';
+            for(var i = 0; i < data.length; i++) {
+                row = data[i]
+                st = row['st'+duration];
+                html += '<div class="data_row flex hover:bg-[#888] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\''+ row['poolAddress']  +'\')">'+
+                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] pl-3 border-[white] w-[330px] h-[35px] pr-2 justify-start text-center">'+
+                                '<div class="font-bold">'+ (row['baseSymbol'] == '' ? formatString(row['baseMint']) : row['baseSymbol']) +'</div>'+
+                                '<div class="mr-3 text-[#888]"> / '+ (row['quoteSymbol'] == '' ? formatString(row['quoteMint']) : row['quoteSymbol']) +'</div>'+
+                                '<div class="flex flex-row items-center justify-center text-[14px] text-[#AAA]">'+
+                                    '<img src="'+ row['baseImage'] + '" style="width:20px; margin-right: 5px;">' + row['baseName'] +
+                                '</div>'+
+                            '</div>'+
+                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['price']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ f(st['txns']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[170px] h-[35px] pr-2 justify-end text-right">$ '+ f(st['volume']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[110px] h-[35px] pr-2 justify-end text-right">'+ f(st['makers']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[130px] h-[35px] pr-2 justify-center text-center">'+ f(Number(st['d_price']).toFixed(3) * 100) +'%</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['liq']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[150px] h-[35px] pr-2 justify-end text-right">$ '+ f(row['mcap']) +'</div>\
+                        </div>';
+                
+            }
+            document.getElementById('data-table').innerHTML = html;
+          })
+          .catch(error => {
+              idle = true;
+              console.error('Error:', error);
+          });
+      }
+
+      fetchData();
+      //setInterval(fetchData, 1000);
+
+    </script>
+</html>

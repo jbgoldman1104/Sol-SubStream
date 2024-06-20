@@ -104,6 +104,7 @@ def init_redis():
                 "quoteMint" VARCHAR(45) NOT NULL,
                 "baseAmount" float8 NOT NULL,
                 "quoteAmount" float8 NOT NULL,
+                "instructionType" VARCHAR(20),
                 "outerProgram" VARCHAR(45),
                 "innerProgram" VARCHAR(45),
                 "baseReserve" float8 NOT NULL,

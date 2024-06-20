@@ -1,6 +1,5 @@
 import TradeData, { TradeDataMap } from './models/tradeModel.js'
 import database from './database.js';
-import type { Transaction } from 'sequelize';
 
 const createQuery =
     "CREATE TABLE trade ( \
@@ -8,15 +7,16 @@ const createQuery =
     \"blockDate\" TIMESTAMP,\
     \"blockTime\" INT NOT NULL,\
     \"blockSlot\" INT NOT NULL,\
-    \"txId\" VARCHAR(255) NOT NULL,\
-    \"signer\" VARCHAR(255) NOT NULL,\
-    \"poolAddress\" VARCHAR(255) NOT NULL,\
-    \"baseMint\" VARCHAR(255) NOT NULL,\
-    \"quoteMint\" VARCHAR(255) NOT NULL,\
+    \"txId\" VARCHAR(90) NOT NULL,\
+    \"signer\" VARCHAR(45) NOT NULL,\
+    \"poolAddress\" VARCHAR(45) NOT NULL,\
+    \"baseMint\" VARCHAR(45) NOT NULL,\
+    \"quoteMint\" VARCHAR(45) NOT NULL,\
     \"baseAmount\" NUMERIC NOT NULL,\
     \"quoteAmount\" NUMERIC NOT NULL,\
-    \"outerProgram\" VARCHAR(255),\
-    \"innerProgram\" VARCHAR(255),\
+    \"instructionType\" VARCHAR(20),\
+    \"outerProgram\" VARCHAR(45),\
+    \"innerProgram\" VARCHAR(45),\
     \"baseReserve\" NUMERIC NOT NULL,\
     \"quoteReserve\" NUMERIC NOT NULL\
 );"

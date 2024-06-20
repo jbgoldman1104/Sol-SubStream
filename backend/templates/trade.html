@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head>
+    <title>pool Detail</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/dist/lightweight-charts.standalone.development.js"></script>
+    <script src="/static/common.js"></script>
+    
+</head>
+<body class="flex items-center justify-center w-screen h-screen bg-[black]">
+    <div class="text-white bg-[#0d0d0d] w-full h-full">
+        <div id="count" class="text-[16px]"></div>
+        
+        <div class="flex flex-col items-center justify-center px-3">
+            <div id="container" class="flex items-center justify-center w-2/3 h-[300px] m-5"></div>
+            <div id="data-table" class="flex flex-col"></div>
+        </div>
+    </div>
+</body>
+<script type="text/javascript">
+      var count = 0
+      var duration = 0
+      var skip = 0
+      var limit = 10
+      var pool = '{{pool}}'
+      var txsort = 'blockTime'
+      
+      var idle = true
+      var chart_idle = true
+      
+      function setDuration(v) {
+          duration = v
+          fetchData()
+      }
+      function setpool(v) {
+          pool = v;
+          fetchData()
+      }
+      function setTxSort(v) {
+          txsort= v;
+          fetchData()
+      }
+      function setSkip(v) {
+          skip = v;
+          fetchData();
+      }
+      function setLimit(v){
+          limit = v;
+          fetchData()
+      }
+      function goBack() {
+        location.href = location.origin
+      }
+      function fetchData() {
+          if (!idle || pool == undefined || pool == '') return;
+          idle = false;
+          count ++;
+        document.getElementById('count').innerHTML = 'request: ' + count;
+        fetch('/api/tx/query?pool='+pool +'&sort='+txsort +'&skip='+skip +'&limit='+limit +'')
+          .then(response => response.json())
+          .then(data => {
+            idle = true;
+            var html = '';
+            html += '<button class="flex items-center justify-center text-[15px] ml-4" onclick="goBack()">Back...</button>\
+                    <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold">\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');"> '+ formatString(data['baseName']) +' </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');"> '+ formatString(data['quoteName']) +' </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[250px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>\
+                            <a class="data_cell flex items-center justify-center border border-solid border-[white] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>\
+                        </div>';
+            for(var i = 0; i < data["data"].length; i++) {
+                row = data["data"][i]
+                html += '<div class="data_row hover:bg-[#555] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">'+
+                            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> '+ formatDate(row['date']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[120px] h-[35px] pr-2 justify-center '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">'+ row['type'] +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ f(row['usd']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">'+ f(row['baseAmount']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[220px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-center">'+ f(row['quoteAmount']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[250px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right">$ '+ f(row['price']) +'</div>\
+                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[white] w-[180px] h-[35px] pr-2 justify-end '+ (row['type'] == 'Buy' ? 'text-[#48BB78]' : 'text-[#F56565]') +' text-right"> '+ formatString(row['maker']) +'</div>\
+                        </div>';
+              if (chart == undefined) init();  
+            }
+            document.getElementById('data-table').innerHTML = html;
+          })
+          .catch(error => {
+              idle = true;
+              console.error('Error:', error);
+          });
+          
+      }
+
+      fetchData();
+      //setInterval(fetchData, 1000);
+      
+      var chart;
+    var intervalID = 0;
+    var series;
+    var idle = false;
+
+    
+    var intervals = [SEC, MIN, MIN5, MIN30, HOUR, HOUR2, WEEK]
+    var interval = 1
+
+    class Datafeed {
+        getBars(
+        poolAddress,
+        from, to,
+        interval,
+        callback
+        ) {
+            chart_idle = false;
+            fetch('/api/tx/chart?pool='+poolAddress +'&t_from='+from +'&t_to='+to +'&interval='+interval +'')
+                .then(response => response.json())
+                .then(callback).catch(error => {
+                    idle = true;
+                    console.error('Error:', error);
+                });
+            // let bars = data.data.map((el) => {
+            //   let dd = new Date(el.startTimestampSeconds * 1000);
+            //   return {
+            // 	time: dd.getTime(), //TradingView requires bar time in ms
+            // 	low: el.low,
+            // 	high: el.high,
+            // 	open: el.open,
+            // 	close: el.close,
+            // 	volume: el.volumeUsd,
+            //   };
+            // });
+        }
+    }
+
+    const datafeed = new Datafeed();
+    var first_time = 0;
+
+
+    function init() {
+        
+        const chartOptions = {
+            handleScroll: {vertTouchDrag: false, },
+            crosshair: {mode: LightweightCharts.CrosshairMode.Normal, },
+            grid: {vertLines:{color:'#232632'}, horzLines:{color:'#232632'}},
+            layout: { textColor: '#9598A1', background: { type: 'solid', color: '#161A25' }},
+            timeScale: {timeVisible: true, secondsVisible: false,},
+        };
+            
+        chart = window.LightweightCharts.createChart(document.getElementById('container'), chartOptions);
+
+        series = chart.addCandlestickSeries({
+            upColor: '#089981', downColor: '#F23645', borderVisible: false,
+            wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        });
+        
+        datafeed.getBars(pool, 0, 0, interval, data => {
+            chart_idle = true
+            if (data.data.length > 0) {
+                data.data.sort((a, b) => {
+                    return a.time - b.time;
+                });
+                first_time = Number(data.data[0]["time"])
+                series.setData(data.data)
+            }
+            chart.timeScale().fitContent();
+        });
+
+
+        chart.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
+            if (chart_idle && logicalRange.from < 0) {
+                console.log(logicalRange.from)
+                // load more data
+                const numberBarsToLoad = 50 - logicalRange.from;
+                
+                const from = Math.round(first_time - intervals[interval] * numberBarsToLoad)
+                const to = first_time - 1
+                datafeed.getBars(pool, from, to, interval, data => {
+                    chart_idle = true
+                    if (data.data.length > 0) {
+                        data.data.sort((a, b) => {
+                            return a.time - b.time;
+                        });
+                        first_time = Number(data.data[0]["time"])
+                        newData = [...data.data, ...series.data()]
+                        series.setData(newData)
+                    }
+                });
+            }
+        });
+    }
+
+    </script>
+</html>
