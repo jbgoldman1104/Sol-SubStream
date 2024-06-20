@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config({
-  path: '${__dirname}/../.env'
+  path: '${__dirname}/../../.env'
 });
 export const db_host = String(process.env.DB_HOST);
 export const db_port = Number(process.env.DB_PORT);

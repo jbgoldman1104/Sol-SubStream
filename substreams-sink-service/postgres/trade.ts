@@ -4,23 +4,21 @@ import type { Transaction } from 'sequelize';
 
 const createQuery =
     "CREATE TABLE trade ( \
-    id SERIAL PRIMARY KEY,\
-    id SERIAL PRIMARY KEY,\
-    blockDate TIMESTAMP,\
-    blockTime INT NOT NULL,\
-    blockSlot INT NOT NULL,\
-    txId VARCHAR(255) NOT NULL,\
-    signer VARCHAR(255) NOT NULL,\
-    poolAddress VARCHAR(255) NOT NULL,\
-    baseMint VARCHAR(255) NOT NULL,\
-    quoteMint VARCHAR(255) NOT NULL,\
-    baseAmount NUMERIC NOT NULL,\
-    quoteAmount NUMERIC NOT NULL,\
-    outerProgram VARCHAR(255),\
-    innerProgram VARCHAR(255),\
-    baseReserve NUMERIC NOT NULL,\
-    quoteReserve NUMERIC NOT NULL,\
-    quotePrice NUMERIC NOT NULL \
+    \"id\" SERIAL PRIMARY KEY,\
+    \"blockDate\" TIMESTAMP,\
+    \"blockTime\" INT NOT NULL,\
+    \"blockSlot\" INT NOT NULL,\
+    \"txId\" VARCHAR(255) NOT NULL,\
+    \"signer\" VARCHAR(255) NOT NULL,\
+    \"poolAddress\" VARCHAR(255) NOT NULL,\
+    \"baseMint\" VARCHAR(255) NOT NULL,\
+    \"quoteMint\" VARCHAR(255) NOT NULL,\
+    \"baseAmount\" NUMERIC NOT NULL,\
+    \"quoteAmount\" NUMERIC NOT NULL,\
+    \"outerProgram\" VARCHAR(255),\
+    \"innerProgram\" VARCHAR(255),\
+    \"baseReserve\" NUMERIC NOT NULL,\
+    \"quoteReserve\" NUMERIC NOT NULL\
 );"
 
 export async function initialize() {

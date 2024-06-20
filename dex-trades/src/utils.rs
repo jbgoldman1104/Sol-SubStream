@@ -25,3 +25,31 @@ pub fn get_mint(
         });
     return result;
 }
+
+pub fn get_mint_all(
+    address: &String,
+    token_balances: &Vec<TokenBalance>,
+    token_balances1: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> String {
+    let index = accounts.iter().position(|r| r == address).unwrap();
+    let mut result: String = String::new();
+
+    token_balances
+        .iter()
+        .filter(|token_balance| token_balance.account_index == index as u32)
+        .for_each(|token_balance| {
+            result = token_balance.mint.clone();
+        });
+
+    if result == "" {
+        token_balances1
+        .iter()
+        .filter(|token_balance| token_balance.account_index == index as u32)
+        .for_each(|token_balance| {
+            result = token_balance.mint.clone();
+        });
+    }
+    return result;
+}
+

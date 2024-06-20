@@ -25,7 +25,36 @@ pub fn parse_trade_instruction(
                 vault_b: get_vault_b(&input_accounts, post_token_balances, accounts),
             });
         }
-        _ => {}
+        1 => {
+            result = Some(TradeInstruction {
+                dapp_address: String::from("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
+                name: String::from("Liquidity"),
+                amm: input_accounts.get(4).unwrap().to_string(),
+                vault_a: get_vault_a_init(&input_accounts, post_token_balances, accounts),
+                vault_b: get_vault_b_init(&input_accounts, post_token_balances, accounts),
+            });
+        }
+        3 => {
+            result = Some(TradeInstruction {
+                dapp_address: String::from("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
+                name: String::from("Liquidity"),
+                amm: input_accounts.get(1).unwrap().to_string(),
+                vault_a: get_vault_a_liquidity(&input_accounts, post_token_balances, accounts),
+                vault_b: get_vault_b_liquidity(&input_accounts, post_token_balances, accounts),
+            });
+        }
+        4 => {
+            result = Some(TradeInstruction {
+                dapp_address: String::from("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
+                name: String::from("Liquidity"),
+                amm: input_accounts.get(1).unwrap().to_string(),
+                vault_a: get_vault_a_liquidity(&input_accounts, post_token_balances, accounts),
+                vault_b: get_vault_b_liquidity(&input_accounts, post_token_balances, accounts),
+            });
+        }
+        _ => {
+            
+        }
     }
 
     return result;
@@ -57,6 +86,69 @@ fn get_vault_b(
 
     if mint_a.is_empty() {
         vault_b = input_accounts.get(6).unwrap().to_string();
+    }
+
+    return vault_b;
+}
+
+
+fn get_vault_a_init(
+    input_accounts: &Vec<String>,
+    post_token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> String {
+    let mut vault_a = input_accounts.get(10).unwrap().to_string();
+    let mint_a = get_mint(&vault_a, post_token_balances, accounts);
+
+    if mint_a.is_empty() {
+        vault_a = input_accounts.get(11).unwrap().to_string();
+    }
+
+    return vault_a;
+}
+
+fn get_vault_b_init(
+    input_accounts: &Vec<String>,
+    post_token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> String {
+    let vault_a = input_accounts.get(10).unwrap().to_string();
+    let mint_a = get_mint(&vault_a, post_token_balances, accounts);
+    let mut vault_b = input_accounts.get(11).unwrap().to_string();
+
+    if mint_a.is_empty() {
+        vault_b = input_accounts.get(12).unwrap().to_string();
+    }
+
+    return vault_b;
+}
+
+fn get_vault_a_liquidity(
+    input_accounts: &Vec<String>,
+    post_token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> String {
+    let mut vault_a = input_accounts.get(6).unwrap().to_string();
+    let mint_a = get_mint(&vault_a, post_token_balances, accounts);
+
+    if mint_a.is_empty() {
+        vault_a = input_accounts.get(7).unwrap().to_string();
+    }
+
+    return vault_a;
+}
+
+fn get_vault_b_liquidity(
+    input_accounts: &Vec<String>,
+    post_token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> String {
+    let vault_a = input_accounts.get(6).unwrap().to_string();
+    let mint_a = get_mint(&vault_a, post_token_balances, accounts);
+    let mut vault_b = input_accounts.get(7).unwrap().to_string();
+
+    if mint_a.is_empty() {
+        vault_b = input_accounts.get(8).unwrap().to_string();
     }
 
     return vault_b;
