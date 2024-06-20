@@ -5,12 +5,14 @@ import redis
 import datetime
 from random import randint as rdi
 # import token_info
+import json
+import os
 
 def connect_redis():
     return redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT)
 
 def connect_db():
-    return psycopg.connect(host=env.DB_HOST, dbname=env.DB_NAME, user=env.DB_USER, password=env.DB_PASS)
+    return psycopg.connect(host = env.DB_HOST, port = env.DB_PORT, dbname = env.DB_NAME, user = env.DB_USER, password = env.DB_PASS)
 
 def getToken(r: redis.Redis, token: str):
     return r.json().get("P:" + token)
@@ -31,8 +33,26 @@ def toP(row: tuple):
                 "st2": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28], "prevVolume": row[29], "prevAmount": row[30], "prevPrice": row[31]},
                 "st3": {"r": row[32], "score": row[33], "txns": row[34], "volume": row[35], "makers": row[36], "d_price": row[37], "prevVolume": row[38], "prevAmount": row[39], "prevPrice": row[40]},
 
-                "baseMint": row[41], "quoteMint": row[42], "poolAddress": row[43], "created": row[44],
+                "baseMint": row[41], "quoteMint": row[42], "poolAddress": row[43], "created": row[44], 
+                "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": ""
                 })
+
+def getPNames(r, p):
+    if not p[2]["baseName"]:
+        tid = mintToId(p[2]["baseMint"])
+        if tid:
+            p[2]["baseSymbol"] = r.get(f'T:{tid}')['symbol']
+            p[2]["baseName"] = r.get(f'T:{tid}')['name']
+
+    if not p[2]["quoteName"]:
+        tid = mintToId(p[2]["quoteMint"])
+        if tid:
+            p[2]["quoteSymbol"] = r.get(f'T:{tid}')['symbol']
+            p[2]["quoteName"] = r.get(f'T:{tid}')['name']
+    
+    return [p[2]["baseName"] if p[2]["baseName"] else p[2]["baseMint"],
+            p[2]["quoteName"] if p[2]["quoteName"] else p[2]["quoteMint"]]
+
 
 def toTx(cur, r, row: tuple):
     if env.USE_PG:
@@ -87,21 +107,51 @@ def insertP(cur, newT):
             )''')
 
 
+fileT = None
+def writeT(meta: dict):
+    global fileT
+    if not fileT:
+        if not os.path.exists(env.FILENAME_T):
+            open(env.FILENAME_T, 'x')
+        fileT = open(env.FILENAME_T, 'a')
+    if fileT:
+        json.dump(meta, fileT)
+        fileT.write('\n')
+    # fileT.close()
+
+fileFailedT = None
+def writeFailedT(id, mint):
+    global fileFailedT
+    if not fileFailedT:
+        if not os.path.exists(env.FILENAME_FailedT):
+            open(env.FILENAME_FailedT, 'x')
+        fileFailedT = open(env.FILENAME_FailedT, 'a')
+    if fileFailedT:
+        json.dump(defaultTValue(id, mint), fileFailedT)
+        fileFailedT.write('\n')
+    # fileFailedT.close()
+
+
 def toT(row: tuple):
-    return (f"T:{row[0]}", ".", {"id": row[0], "name": row[1], "symbol": row[2], "uri": row[3], "seller_fee_basis_points": row[4],
-                                "created": row[5], "verified": row[6], "share": row[7],  "mint_authority": row[8], "supply": row[9], 
-                                "decimals": row[10], "supply_real": row[11], "is_initialized": row[12], "freeze_authority": row[13],
-                                "image": row[14], "description": row[15], "twitter": row[16], "website": row[17],
+    return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
+                                "created": row[6], "verified": row[7], "share": row[8],  "mint_authority": row[9], "supply": row[10], 
+                                "decimals": row[11], "supply_real": row[12], "is_initialized": row[13], "freeze_authority": row[14],
+                                "image": row[15], "description": row[16], "twitter": row[17], "website": row[18],
                 })
 
+def defaultTValue(id, mint: str):
+    return (f'{id}', mint, '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', '')
 
+def defaultT(id, mint: str):
+    return toT(defaultTValue(id, mint))
+               
 def mintToId(cur, r, mint: str):
     id = r.hget('H_T', mint)
     if not id:
         id = r.hlen('H_T') + 1
         # print(f"new mint {mint} => {id}")
         r.hset('H_T', mint, id)
-        r.json().mset([toT((f'{id}', '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', ''))])
+        r.json().mset([defaultT(id, mint)])
         # token_info.update_nft(cur, r, id, mint)
         # r.xadd('TOKEN_STREAM', {id: mint})
         r.lpush('L_TOKENS', f'{id},{mint}')
@@ -110,18 +160,22 @@ def mintToId(cur, r, mint: str):
         id = int(id.decode())
     return id
 
-def getMintAddresses(r, pool):
-    pair = r.hget('H_P2M', pool)
-    return pair.decode().split('/') if pair else []
+def getMintAddresses(r, pid):
+    # pair = r.hget('H_P2M', pid)
+    p = r.json().get(f'P:{pid}')
+    if p:
+        return [p['baseMint'], p['quoteMint']]
+    return []
 
-def poolToId(cur, r, pool: str, pair: str ):
-    id = r.hget('H_P', pool)
-    if not id:
-        id = r.hlen('H_P') + 1
-        r.hset('H_P', pool, id)
+def poolToId(cur, r, pool: str, pair: str = "" ):
+    pid = r.hget('H_P', pool)
+    if not pid:      # New Pair!
+        if not pair: return None
+        pid = r.hlen('H_P') + 1
+        r.hset('H_P', pool, pid)
         split = pair.split('/')
-        r.hset('H_P2M', pool, pair)
-        newP = toP((f'{id}', 0, 0, 0, 0,
+        # r.hset('H_P2M', pool, pair)
+        newP = toP((f'{pid}', 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -130,15 +184,40 @@ def poolToId(cur, r, pool: str, pair: str ):
         r.json().mset([newP])
         for i in range(4):
             r.zadd(f"SS_PS{i}", {newP[2]["id"] : newP[2][f"st{i}"]["score"]}) # type: ignore
+        
+        r.ts().create(f'TS_P{pid}', retention_msecs=env.DAY)
+        for i in range(7):
+            r.ts().create(f'TS_PO{pid}:{i}', retention_msecs=env.RP[i])    
+            r.ts().createrule(f'TS_P{pid}', f'TS_PO{pid}:{i}', aggregation_type="first", bucket_size_msec=env.BD[i])
+        
+        for i in range(7):
+            r.ts().create(f'TS_PH{pid}:{i}', retention_msecs=env.RP[i])    
+            r.ts().createrule(f'TS_P{pid}', f'TS_PH{pid}:{i}', aggregation_type="max", bucket_size_msec=env.BD[i])
+        
+        for i in range(7):
+            r.ts().create(f'TS_PL{pid}:{i}', retention_msecs=env.RP[i])    
+            r.ts().createrule(f'TS_P{pid}', f'TS_PL{pid}:{i}', aggregation_type="min", bucket_size_msec=env.BD[i])
+        
+        for i in range(7):
+            r.ts().create(f'TS_PC{pid}:{i}', retention_msecs=env.RP[i])    
+            r.ts().createrule(f'TS_P{pid}', f'TS_PC{pid}:{i}', aggregation_type="last", bucket_size_msec=env.BD[i])
+        
+        r.ts().create(f'TS_V{pid}', retention_msecs=env.DAY)
+        for i in range(7):
+            r.ts().create(f'TS_V{pid}:{i}', retention_msecs=env.RP[i])    
+            r.ts().createrule(f'TS_V{pid}', f'TS_V{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
 
-        mintToId(cur, r, split[0])
-        mintToId(cur, r, split[1])
+        baseId = mintToId(cur, r, split[0])
+        quoteId = mintToId(cur, r, split[1])
+
+        r.sadd(f"S_TP{baseId}", pid) # type: ignore
+        r.sadd(f"S_TP{quoteId}", pid) # type: ignore
 
         # TODO sync with PG
         # insertP(cur, newP)
     else:
-        id = int(id.decode())
-    return id
+        pid = int(pid.decode())
+    return pid
 
 def isSol(mint: str):
     return mint == 'So11111111111111111111111111111111111111112'
@@ -173,3 +252,8 @@ def getPrice(solPrice, baseAmount, quoteAmount, baseMint, quoteMint):
             pass
     return abs(price)
 # __app__ = [connect_redis, connect_db]
+
+
+if __name__ == "__main__":
+    # print(getMintAddresses(r, '1'))
+    pass

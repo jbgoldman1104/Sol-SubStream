@@ -15,10 +15,13 @@ import common
 import asyncio
 import aiohttp
 
+import json
+
 r = common.connect_redis()
 #TODO: get your own solana rpc node
 #devnet
-solana_client = Client(env.API_KEY)
+solana_clients = [Client(env.API_KEY1), Client(env.API_KEY2)]
+cnt = 0
 
 METADATA_PROGRAM_ID = PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
 def get_nft_pda(mint_key):
@@ -82,25 +85,25 @@ def unpack_metadata_account(data):
     }
     return metadata
 
-def get_metadata(mint_key):
-    data = base64.b64decode(solana_client.get_account_info(get_nft_pda(mint_key))['result']['value']['data'][0]) # type: ignore
+def get_metadata(id, mint_key):
+    data = base64.b64decode(solana_clients[id % len(solana_clients)].get_account_info(get_nft_pda(mint_key))['result']['value']['data'][0]) # type: ignore
     return(unpack_metadata_account(data))
         
 def get_nft(id, mint_key):
     try:
-        meta = get_metadata(mint_key)['data']
-        client = Client(env.API_KEY)
-        token = Token(client, PublicKey(mint_key), TOKEN_PROGRAM_ID, Keypair.generate())
+        meta = get_metadata(id, mint_key)['data']
+        # client = Client(env.API_KEY_TEST)
+        token = Token(solana_clients[id % len(solana_clients)], PublicKey(mint_key), TOKEN_PROGRAM_ID, Keypair.generate())
         info = token.get_mint_info()
-        try:
-            uri_data = requests.get(meta['uri']).json()
-        except:
-            uri_data = {}
+        # try:  # TODO slow
+        #     uri_data = requests.get(meta['uri']).json()
+        # except:
+        uri_data = {}
         
     except:
         return None    #probably not a nft
-    return (id, meta['name'], meta['symbol'], meta['uri'], meta['seller_fee_basis_points'], [val.decode() for val in meta['creators']], meta['verified'], meta['share'],
-            str(info.mint_authority) if info.mint_authority else None, info.supply, info.supply, info.supply / (1.0 ** info.supply), info.is_initialized,
+    return (id, mint_key, meta['name'], meta['symbol'], meta['uri'], meta['seller_fee_basis_points'], [val.decode() for val in meta['creators']], meta['verified'], meta['share'],
+            str(info.mint_authority) if info.mint_authority else None, info.supply, info.decimals, info.supply / (10.0 ** info.decimals), info.is_initialized,
             str(info.freeze_authority), 
             uri_data["image"] if "image" in uri_data else None, 
             uri_data["description"] if "description" in uri_data else None, 
@@ -112,10 +115,15 @@ async def update_nft(id, mint):
     meta = get_nft(id, mint)
 
     if meta:
-        print(f'{meta[0]} - {meta[2]} : {meta[3]} => {meta[14]}') # type: ignore
+        if meta[15] and meta[15].startsWith("data:image/"):
+            meta[15] = None     # TODO make thumbnail image to server
+        print(f'{meta[0]} - {meta[3]} : {meta[4]} => {meta[15]}') # type: ignore
         r.json().mset([common.toT(meta)])
+        # write to file
+        common.writeT(meta)
     else:
         print(f"update_nft error: {mint}")
+        common.writeFailedT(id, mint)
     # r.lpop('L_TOKEN_REQUEST')
 
 
@@ -130,7 +138,6 @@ async def token_thread():
     while True:
         # tokens = r.xread( streams = {"TOKEN_STREAM": 0}, block = 600000 )
         cmd = r.brpop('L_TOKENS')[1].decode()
-        print(r.llen('L_TOKENS'))
         # if cmd == 'QUIT':
             # while r.llen('L_TOKEN_REQUEST') > 0:
                 # asyncio.sleep(0.1)
@@ -142,7 +149,9 @@ async def token_thread():
         tasks.append(asyncio.create_task(update_nft(int(split[0]), split[1])))
         # r.lpush('L_TOKEN_REQUEST', int(split[0]))
         # await temp
-        print(len(tasks))
+        remain = r.llen('L_TOKENS')
+        num_tasks = len(tasks)
+        print(f'{remain}___{num_tasks}')
         while len(tasks) >= env.NUM_REQUESTS:
             await tasks[0]
             tasks.pop(0)
