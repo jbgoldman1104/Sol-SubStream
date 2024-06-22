@@ -1,3 +1,7 @@
+
+DOMAIN = 'http://localhost:8000'
+# DOMAIN = 'https://memetrend.united-crypto.xyz'
+
 REDIS_HOST = 'localhost'
 # REDIS_PORT = 12000
 REDIS_PORT = 6379

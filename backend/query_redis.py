@@ -24,6 +24,25 @@ def convert_to_custom_format(number):
     
     return result
 
+# {
+#   "type": "PAIRS_DATA",
+#   "data": {
+#     "base" {
+#       "Name": "Wrapped SOL",
+#       "Symbol": SOL,
+#       "Uri": ,
+#       "Supply": 24.555908821439385,
+#       "Image": "ohlcv",
+#       "Description": "1m",
+#       "Twitter": 1675506120,
+#       "Website: 51.838008518,
+#     }
+
+#     "quoteName": "SOL-USDC",
+#     "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
+#   }
+# }
+
 def get_pairs(pids):
     if not pids: return []
     rlt = r.json().mget([f'P:{t.decode()}' for t in pids], ".") # type: ignore
@@ -93,6 +112,48 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
     # TODO custom sort with PG
     # return r.json().mget(["token:T1111"], ".")
 
+# {
+#   type: 'TXS_DATA',
+#   data: {
+#     blockUnixTime: 1714107255,
+#     owner: 'TyrZ6SDVQGdMpnYtAgKGocvi1w1mdffhZENf1knyeqy',
+#     source: 'raydium',
+#     txHash: '3XtCydTzZPJNGr9qQ83rvkKyGQHMQcUa3QpgBZoz97i3VkRGL3e8UBhM7JUnprwbcgWXeHXST74NeaEE4vjWeEME',
+#     alias: null,
+#     isTradeOnBe: false,
+#     platform: 'YmirFH6wUrtUMUmfRPZE7TcnszDw689YNWYrMgyB55N',
+#     volumeUSD: 31.569239727896086,
+#     from: {
+#       symbol: 'SOL',
+#       decimals: 9,
+#       address: 'So11111111111111111111111111111111111111112',
+#       amount: 219852856,
+#       type: 'transfer',
+#       typeSwap: 'from',
+#       uiAmount: 0.219852856,
+#       price: null,
+#       nearestPrice: 143.5925841595439,
+#       changeAmount: -219852856,
+#       uiChangeAmount: -0.219852856,
+#       icon: null
+#     },
+#     to: {
+#       symbol: 'TOM',
+#       decimals: 9,
+#       address: '2rJSfgxoWP7h3rw3hDUF7HPToY3exb6FdH9xFBg7TeQk',
+#       amount: 650244687263,
+#       type: 'transfer',
+#       typeSwap: 'to',
+#       feeInfo: null,
+#       uiAmount: 650.244687263,
+#       price: 0.048549784944459676,
+#       nearestPrice: 0.048420900217275124,
+#       changeAmount: 650244687263,
+#       uiChangeAmount: 650.244687263,
+#       icon: null
+#     }
+#   }
+# }
 def query_tx(pool: str = "", sort: str = "blockTime", direction = "desc", skip: int = 0, limit: int = 100):
     _b('query_tx')
     if not pool: return []
@@ -131,6 +192,21 @@ def query_tx(pool: str = "", sort: str = "blockTime", direction = "desc", skip: 
     _b()
     return rlt
 
+# {
+#   "type": "PRICE_DATA",
+#   "data": {
+#     "o": 24.552070604303985,
+#     "h": 24.555908821439385,
+#     "l": 24.552070604303985,
+#     "c": 24.555908821439385,
+#     "eventType": "ohlcv",
+#     "type": "1m",
+#     "unixTime": 1675506120,
+#     "v": 51.838008518,
+#     "symbol": "SOL-USDC",
+#     "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
+#   }
+# }
 def query_chart(pool: str = "", t_from: int = 0, t_to: int = 0, interval: int = 0):
     _b('query_chart')
     if not pool or interval < 0 or interval > 7: return []
