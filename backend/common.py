@@ -20,6 +20,9 @@ def getToken(r: redis.Redis, token: str):
 # def name2id(r: redis.Redis, token: str):
 #     return r.json().get("P:" + token, "id")
 
+def nows():
+    return int(datetime.datetime.now().timestamp())
+    
 def now():
     return int(datetime.datetime.now().timestamp() * 1000)
 
@@ -37,7 +40,7 @@ def toP(row: tuple):
                 "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": ""
                 })
 
-def getPNames(r, p):
+def getPSymbols(r, p):
     if not p[2]["baseName"]:
         tid = mintToId(p[2]["baseMint"])
         if tid:
@@ -50,14 +53,14 @@ def getPNames(r, p):
             p[2]["quoteSymbol"] = r.get(f'T:{tid}')['symbol']
             p[2]["quoteName"] = r.get(f'T:{tid}')['name']
     
-    return [p[2]["baseName"] if p[2]["baseName"] else p[2]["baseMint"],
-            p[2]["quoteName"] if p[2]["quoteName"] else p[2]["quoteMint"]]
+    return [p[2]["baseSymbol"] if p[2]["baseSymbol"] else p[2]["baseMint"],
+            p[2]["quoteSymbol"] if p[2]["quoteSymbol"] else p[2]["quoteMint"]]
 
 
 def toTx(cur, r, row: tuple):
     if env.USE_PG:
         assert len(row) == 16
-        return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2] * 1000, "blockSlot": row[3],
+        return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2], "blockSlot": row[3],
                                       "txId": row[4], "signer": row[5], "poolAddress": row[6], "baseMint": row[7], "quoteMint": row[8],
                                       "baseAmount": row[9], "quoteAmount": row[10], "instructionType": row[11],
                                       "outerProgram": row[12], "innerProgram": row[13], "baseReserve": row[14], "quoteReserve": row[15], 
@@ -131,6 +134,8 @@ def writeFailedT(id, mint):
         fileFailedT.write('\n')
     # fileFailedT.close()
 
+def toD(row: tuple):
+    return (f"D:{row[0]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": row[3]})
 
 def toT(row: tuple):
     return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
@@ -167,6 +172,14 @@ def getMintAddresses(r, pid):
         return [p['baseMint'], p['quoteMint']]
     return []
 
+    
+
+def getSymbols(r, pid):
+    p = r.json().get(f'P:{pid}')
+    if p:
+        return getPSymbols(r, p)
+    return None
+
 def poolToId(cur, r, pool: str, pair: str = "" ):
     pid = r.hget('H_P', pool)
     if not pid:      # New Pair!
@@ -182,29 +195,29 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
                         0, 0, 0, 0, 0, 0, 0, 0, 0,
                         split[0], split[1], pool, now()))
         r.json().mset([newP])
-        for i in range(4):
+        for i in range(env.NUM_DURATIONS):
             r.zadd(f"SS_PS{i}", {newP[2]["id"] : newP[2][f"st{i}"]["score"]}) # type: ignore
         
-        r.ts().create(f'TS_P{pid}', retention_msecs=env.DAY)
-        for i in range(7):
-            r.ts().create(f'TS_PO{pid}:{i}', retention_msecs=env.RP[i])    
+        r.ts().create(f'TS_P{pid}', retention_msecs=env.DAY*1000)
+        for i in range(env.NUM_INTERVALS):
+            r.ts().create(f'TS_PO{pid}:{i}', retention_msecs=env.RP[i]*1000)    
             r.ts().createrule(f'TS_P{pid}', f'TS_PO{pid}:{i}', aggregation_type="first", bucket_size_msec=env.BD[i])
         
-        for i in range(7):
-            r.ts().create(f'TS_PH{pid}:{i}', retention_msecs=env.RP[i])    
+        for i in range(env.NUM_INTERVALS):
+            r.ts().create(f'TS_PH{pid}:{i}', retention_msecs=env.RP[i]*1000)    
             r.ts().createrule(f'TS_P{pid}', f'TS_PH{pid}:{i}', aggregation_type="max", bucket_size_msec=env.BD[i])
         
-        for i in range(7):
-            r.ts().create(f'TS_PL{pid}:{i}', retention_msecs=env.RP[i])    
+        for i in range(env.NUM_INTERVALS):
+            r.ts().create(f'TS_PL{pid}:{i}', retention_msecs=env.RP[i]*1000)    
             r.ts().createrule(f'TS_P{pid}', f'TS_PL{pid}:{i}', aggregation_type="min", bucket_size_msec=env.BD[i])
         
-        for i in range(7):
-            r.ts().create(f'TS_PC{pid}:{i}', retention_msecs=env.RP[i])    
+        for i in range(env.NUM_INTERVALS):
+            r.ts().create(f'TS_PC{pid}:{i}', retention_msecs=env.RP[i]*1000)    
             r.ts().createrule(f'TS_P{pid}', f'TS_PC{pid}:{i}', aggregation_type="last", bucket_size_msec=env.BD[i])
         
-        r.ts().create(f'TS_V{pid}', retention_msecs=env.DAY)
-        for i in range(7):
-            r.ts().create(f'TS_V{pid}:{i}', retention_msecs=env.RP[i])    
+        r.ts().create(f'TS_V{pid}', retention_msecs=env.DAY*1000)
+        for i in range(env.NUM_INTERVALS):
+            r.ts().create(f'TS_V{pid}:{i}', retention_msecs=env.RP[i]*1000)    
             r.ts().createrule(f'TS_V{pid}', f'TS_V{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
 
         baseId = mintToId(cur, r, split[0])

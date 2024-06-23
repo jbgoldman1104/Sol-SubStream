@@ -33,27 +33,49 @@ from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 #     for row in cur:
 #         yield row
 
+def importD(r, filename: str):
+    if not os.path.exists(filename):
+        open(filename, 'x')
+    file = open(filename, 'r+')
+    # line = fileT.read(1000000).decode()
+    rows = []
+    if file:
+        for line in file:
+            if line:
+                try:
+                    row = json.loads(line)
+                    rows.append(common.toD(row))
+                    # r.hset('H_D', row[1], row[0])
+                    if len(rows) >= 1000:
+                        print(f'D:{row[1]}')
+                        r.json().mset(rows)
+                        rows = []
+                except Exception as e:
+                    print("input file type error: " + str(e) + ":    " + line)
+                    file.write('\n')
+    if len(rows) > 0: r.json().mset(rows)
+    
 def importT(r, filename: str):
     if not os.path.exists(filename):
         open(filename, 'x')
-    fileT = open(filename, 'r+')
+    file = open(filename, 'r+')
     # line = fileT.read(1000000).decode()
-    ts = []
-    if fileT:
-        for line in fileT:
+    rows = []
+    if file:
+        for line in file:
             if line:
                 try:
-                    t = json.loads(line)
-                    ts.append(common.toT(t))
-                    r.hset('H_T', t[1], t[0])
-                    if len(ts) >= 1000:
-                        print(f'T:{t[0]}')
-                        r.json().mset(ts)
-                        ts = []
+                    row = json.loads(line)
+                    rows.append(common.toT(row))
+                    r.hset('H_T', row[1], row[0])
+                    if len(rows) >= 1000:
+                        print(f'T:{row[0]}')
+                        r.json().mset(rows)
+                        rows = []
                 except Exception as e:
                     print("input file type error: " + str(e) + ":    " + line)
-                    fileT.write('\n')
-    if len(ts) > 0: r.json().mset(ts)
+                    file.write('\n')
+    if len(rows) > 0: r.json().mset(rows)
     # ts == line.split('^')
 
 def init_redis():
@@ -113,7 +135,9 @@ def init_redis():
         )
         conn.commit()
         
-    
+    # --- Import D:, H_D ---
+    importD(r, env.FILENAME_T)
+
     # --- Import T:, H_T ---
     importT(r, env.FILENAME_T)
     importT(r, env.FILENAME_FailedT)
@@ -151,38 +175,18 @@ def init_redis():
         #         r.json().mset(pairs) # type: ignore
         #         # r.hmset('H_T', {})    # TODO
         #         read_p_id = pairs[len(pairs)-1][2]["id"]
-        #         for i in range(4):
+        #         for i in range(env.NUM_DURATIONS):
         #             r.zadd(f"SS_PS{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
         #         if len(rows) < env.DB_READ_SIZE: break
         
-    # else:
-        # pairs = [common.toP((f"T{i}/T{i}", rd() * 10, rd() * 1e8, rd() * 1e13, 0, 
-        #                                     rd() * 100,         rd() * 100, rdi(1, 100000), rd() * 1e6, rdi(1, 1000), rd() * 1e3, 0, 0, 0,
-        #                                     100 + rd() * 1000,  rd() * 100, rdi(1, 100000), rd() * 1e6, rdi(1, 1000), rd() * 1e3, 0, 0, 0,
-        #                                     100 + rd() * 10000, rd() * 100, rdi(1, 100000), rd() * 1e6, rdi(1, 1000), rd() * 1e3, 0, 0, 0,
-        #                                     100 + rd() * 100000, rd() * 100, rdi(1, 100000), rd() * 1e6, rdi(1, 1000), rd() * 1e3, 0, 0, 0,
-        #                                     f"SYMBOL{i}", f"SYMBOL{i}")
-        #        ) for i in range(env.NTEST)]
-        # r.json().mset(pairs) # type: ignore
-        # for i in range(4):
-        #     r.zadd(f"SS_PS{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
-
-        # for i in range(env.NTEST * 5):
-        #     id = common.rtx()
-        #     timestamp = now - rdi(1, 3000) - i//5 * 3000
-        #     txs.append(common.toTx(cur, r, (id, common.rp(), common.rp(), rdi(1,5), rd()*100, rd()* 100, f'{rdi(1, 0xFFFFFFFFFFFFFFFF):X}', timestamp)))
-        #     r.json().mset(txs) # type: ignore
-
+    
     
     # --- Init SS_BLK, SS_PR ---
     if env.USE_PG:
         # This is done in input_redis.py
         # TODO load from PG
         pass
-    else:
-        r.zadd('SS_BLK', {f'{txs[i*5][2]["id"]},{txs[i*5 + 1][2]["id"]},{txs[i*5 + 2][2]["id"]}' : now - i * 3000 
-                for i in range(len(txs) // 5)})
-        r.zadd('SS_PR', {common.rp() : now - i * 3000 * len(txs) // 5 for i in range(len(pairs) * 100)} )
+   
 
     # --- Create Indexes ---
     r.ft("IDX_T").create_index((TextField("$.name", as_name="name"),

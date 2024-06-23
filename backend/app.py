@@ -38,11 +38,32 @@ app.add_middleware( CORSMiddleware, allow_origins=["*"], allow_credentials=True,
 
 # ------------- Socket -------------  
 mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0')
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", logger=True, engineio_logger=True, client_manager=mgr)
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", logger=False, engineio_logger=False, client_manager=mgr)
 # sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", logger=True, engineio_logger=True)
 sio_app = socketio.ASGIApp(socketio_server=sio, socketio_path="socket.io")
 app.mount("/socket.io", sio_app)
 
+def enter(sid, new, ns):
+    prev = r.hget('H_SR', sid)
+    if prev:
+        print(f'{sio} leave {prev}')
+        sio.leave_room(sid, prev, ns)
+        r.zincrby(f'SS_RO{ns}', -1, prev)
+        r.hdel('H_SR', sid)
+    if new:
+        print(f'{sio} enter {new}')
+        sio.enter_room(sid, new, ns)
+        r.zincrby(f'SS_RO{ns}', 1, new)
+        r.hset('H_SR', sid, new)
+    
+def leave(sid, ns):
+    prev = r.hget('H_SR', sid)
+    if prev:
+        print(f'{sio} leave {prev}')
+        sio.leave_room(sid, prev, ns)
+        r.zincrby(f'SS_RO{ns}', -1, prev)
+        r.hdel('H_SR', sid)
+    # if not data: return False
 
 @sio.event(namespace=env.NS_ST)
 async def connect(sid, environ):
@@ -54,82 +75,44 @@ async def disconnect(sid):
     print(f'--- Disconnected ---: {sid}')
     for ns in env.NSS:
         leave(sid, ns)
-
-
-
-# in {
-#     "type": "SUBSCRIBE_PAIRS",
-#     "data": {
-#         "duration": 0,
-#         "skip": 0,
-#         "limit": 100,
-#         "sort": "score",
-#         "sort_dir": "desc",
-#     }
-# }
-
-    
-# {
-#     "type": "SUBSCRIBE_TXS",
-#     "data": {
-#         "queryType": "simple",
-#         "pairAddress": "842NwDnKYcfMRWAYqsD3hoTWXKKMi28gVABtmaupFcnS"
-#     }
-# }
-
-# {
-#     "type": "SUBSCRIBE_PRICE",
-#     "data": {
-#         "queryType": "simple",
-#         "chartType": "1m",
-#         "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm",
-#         "currency": "pair"
-#     }
-# }
-
-def enter(sid, new, ns):
-    prev = r.hget('H_SR', sid)
-    if prev:
-        sio.leave_room(sid, prev, ns)
-        r.zincrby(f'SS_RO{env.NS_ST}', -1, prev)
-        r.hdel('H_SR', sid)
-    if new:
-        sio.enter_room(sid, new, ns)
-        r.zincrby(f'SS_RO{env.NS_ST}', 1, new)
-        r.hset('H_SR', sid, new)
-    
-def leave(sid, data, ns):
-    prev = r.hget('H_SR', sid)
-    if prev:
-        sio.leave_room(sid, prev, ns)
-        r.zincrby(f'SS_RO{env.NS_ST}', -1, prev)
-        r.hdel('H_SR', sid)
-    # if not data: return False
-    
+            
 @sio.event(namespace=env.NS_ST)
 async def subscribe(sid, data):
-    print(f'--- Subscribe ---: {sid} : {data}')
-    enter(sid, data, env.NS_ST)
-    # data = json.loads(data)
-    # sio.enter_room(sid, '123123123', namespace=env.NS_ST)
-    # await mgr.send({"type": "message", "data": "subscribe successfull."}, room=data, namespace=env.NS_ST)
-    # await mgr.emit('reply_message', {"type":"123", "data": { "data1": 123}}, room=data, namespace=env.NS_ST)
-    # await sio.emit('reply_message', {"type":"123", "data": { "data1": 123}}, room=data, namespace=env.NS_ST)
-    # room = '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}'
-    # await sio.emit('PAIRS_DATA', query_redis.query_wrap('', data), room=data, namespace=env.NS_ST)
+    print(f'--- Subscribe ST ---: {sid} : {data}')
+    enter(sid, json.dumps(data), env.NS_ST)
     
 @sio.event(namespace=env.NS_ST)
 async def unsubscribe(sid, data):
-    print(f'--- Unsubscribe ---: {sid} : {data}')
+    print(f'--- Unsubscribe ST ---: {sid} : {data}')
     leave(sid, data, env.NS_ST)
     
 
-# redis
-# import redis
+@sio.event(namespace=env.NS_TX)
+async def connect(sid, environ):
+    print(f'--- Connected TX ---: {sid} : {environ["REMOTE_ADDR"]}')
+    # raise ConnectionRefusedError('authentication failed')
 
-# import env
-# r = redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT)
-# print("Redis Connected" if r.ping() else "Redis Not Connected")
+@sio.event(namespace=env.NS_TX)
+async def disconnect(sid):
+    print(f'--- Disconnected TX ---: {sid}')
+    for ns in env.NSS:
+        leave(sid, ns)
+            
+@sio.event(namespace=env.NS_TX)
+async def subscribe(sid, data):
+    print(f'--- Subscribe TX ---: {sid} : {data}')
+    enter(sid, json.dumps(data), env.NS_TX)
+    
+@sio.event(namespace=env.NS_TX)
+async def unsubscribe(sid, data):
+    print(f'--- Unsubscribe TX ---: {sid} : {data}')
+    leave(sid, data, env.NS_TX)
+
+@sio.event(namespace=env.NS_TX)
+async def data(sid, data):
+    print(f'--- Data TX ---: {sid} : {data}')
+    return query_redis.query_wrap('', data)
+    
 
 
 from pathlib import Path
@@ -164,7 +147,7 @@ async def read_tx(pool: str = "", sort: str = "blockTime", direction: str = "des
 
 @app.get("/api/tx/chart")
 async def read_chart(pool: str = "", t_from: int = 0, t_to: int = 0, interval: int = 0):
-    return query_redis.query_chart(pool, t_from, t_to, interval)
+    return query_redis.query_price_historical(pool, t_from, t_to, interval)
 
 app.mount("/", StaticFiles(directory=str(Path(BASE_DIR, 'static'))), name="static")
 
@@ -174,35 +157,35 @@ async def query_send(ns, data):
     # mgr.emit('PAIRS_DATA', query_redis.query_wrap(ns, data), room=data, namespace=env.NS_ST)
     sio.emit('PAIRS_DATA', query_redis.query_wrap(ns, data), room=data, namespace=env.NS_ST)
 
-async def send_data_thread():
-    prev = 0
-    while True:
-        r.ltrim('L_UPDATED', 0, 0)
-        cmd = r.brpop('L_UPDATED')[1].decode()
-        if cmd == 'QUIT': break
-        now = common.now()
-        if now - prev < 3000:
-            asyncio.sleep((prev - now) / 1000)
-        prev = now
-        # mgr.initialize()
-        # data = '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}'
-        # mgr.emit('message', query_redis.query_wrap('', room), room='123123123', namespace=env.NS_ST)
-        # await sio.emit('PAIRS_DATA', query_redis.query_wrap('', data), room=data, namespace=env.NS_ST)
-        # if not mgr.rooms: continue
-        if not sio.rooms: continue
+# async def send_data_thread():
+#     prev = 0
+#     while True:
+#         r.ltrim('L_UPDATED', 0, 0)
+#         cmd = r.brpop('L_UPDATED')[1].decode()
+#         if cmd == 'QUIT': break
+#         now = common.now()
+#         if now - prev < 3000:
+#             asyncio.sleep((prev - now) / 1000)
+#         prev = now
+#         # mgr.initialize()
+#         # data = '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}'
+#         # mgr.emit('message', query_redis.query_wrap('', room), room='123123123', namespace=env.NS_ST)
+#         # await sio.emit('PAIRS_DATA', query_redis.query_wrap('', data), room=data, namespace=env.NS_ST)
+#         # if not mgr.rooms: continue
+#         if not sio.rooms: continue
         
-        tasks = []
-        for ns in env.NSS:
-            rooms = sio.rooms[ns]
-            if rooms:
-                rooms = rooms.keys()
-                for room in rooms:
-                    if not room: continue
-                    if not room.startswith("{"):
-                        tasks.append(asyncio.create_task(query_send(ns, room)))
-        _b(f'query_send {len(tasks)}')
-        if not tasks: continue
-        asyncio.gather(tasks)
+#         tasks = []
+#         for ns in env.NSS:
+#             rooms = sio.rooms[ns]
+#             if rooms:
+#                 rooms = rooms.keys()
+#                 for room in rooms:
+#                     if not room: continue
+#                     if not room.startswith("{"):
+#                         tasks.append(asyncio.create_task(query_send(ns, room)))
+#         _b(f'query_send {len(tasks)}')
+#         if not tasks: continue
+#         asyncio.gather(tasks)
 
 
 # def background_worker(loop):

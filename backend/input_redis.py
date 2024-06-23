@@ -63,13 +63,7 @@ def update_thread():
                 t_end_ = datetime.datetime.now()
                 t_end1 += t_end_ - t_start_
                 new_tx_count = len(rows)
-            else:
-                new_tx_count = 3
-                for i in range(new_tx_count):
-                    id = common.rtx()
-                    timestamp = now - rdi(1, 3000)
-                    tx = common.toTx(cur, r, (id, common.rp(), common.rp(), rdi(1,5), rd()*100, rd() * 100, rdi(1, 0xFFFFFFFFFFFFFFFF), timestamp))
-                    new_txs.append(tx)
+            
             # assert len(new_txs) > 0
             for tx in new_txs:
                 if common.isUSD(tx[2]['quoteMint']) and common.isSol(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0:
@@ -95,14 +89,14 @@ def update_thread():
             
             t_start2 = datetime.datetime.now()
             # --- Update Score ---
-            prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(4)]
-            prev_prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i] - env.PREV_SUM_LENGTH, now - env.DURATION[i] - env.PREV_SUM_LENGTH) for i in range(4)]
+            prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(env.NUM_DURATIONS)]
+            prev_prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i] - env.PREV_SUM_LENGTH, now - env.DURATION[i] - env.PREV_SUM_LENGTH) for i in range(env.NUM_DURATIONS)]
             t_end2 = datetime.datetime.now()
             
             # Add tokens for old txs
             old_txs_4 = []
             old_txs_p_ids_4 = []
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 if not prev_blocks[i]:
                     old_txs_4.append([])
                     old_txs_p_ids_4.append([])
@@ -125,7 +119,7 @@ def update_thread():
             # Add tokens for prev old txs
             prev_old_txs_4 = []
             prev_old_txs_p_ids_4 = []
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 if not prev_prev_blocks[i]:
                     prev_old_txs_4.append([])
                     prev_old_txs_p_ids_4.append([])
@@ -148,16 +142,16 @@ def update_thread():
 
             # --- Recent and Old Read Count ---
             new_r_pids = r.zrangebyscore('SS_PR', prev, now) # for +
-            old_rs_pids_4 = [r.zrangebyscore('SS_PR', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(4)] # type: ignore
+            old_rs_pids_4 = [r.zrangebyscore('SS_PR', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(env.NUM_DURATIONS)] # type: ignore
             
             new_r_pids = [item.decode() for item in new_r_pids] # type: ignore
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 old_rs_pids_4[i] = [item.decode() for item in old_rs_pids_4[i]] # type: ignore
             
             # --- Make New Token Values ---
             replace_pids = [f'{tx[2]["pid"]}' for tx in new_txs] # names to load and replace **new token id
             replace_pids.extend(new_r_pids) # type: ignore
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 if old_rs_pids_4[i]:
                     replace_pids.extend(old_rs_pids_4[i]) # type: ignore
                 if old_txs_p_ids_4[i]:
@@ -184,7 +178,7 @@ def update_thread():
                 p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_replace[p]['mcap'] = 1e9 * p_replace[p]['price']  # TODO with T:*
 
-                for i in range(4):
+                for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['txns'] += 1
                     p_replace[p][f"st{i}"]['volume'] += abs(tx[2]["baseAmount"] * p_replace[p]['price'])
                     p_replace[p][f"st{i}"]['makers'] += 1   #TODO
@@ -195,14 +189,14 @@ def update_thread():
             for pid in new_r_pids: # type: ignore
                 p = f'P:{pid}'
                 p_replace[p]['r'] += 1
-                for i in range(4):
+                for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['r'] += 1
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 for pid in old_rs_pids_4[i]: # type: ignore
                     p_replace[f'P:{pid}'][f'st{i}']['r'] -= 1
             
             # --- Handle Prev Old txs ---
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 if not prev_old_txs_4[i]: continue
                 
                 for tx in prev_old_txs_4[i]:
@@ -218,7 +212,7 @@ def update_thread():
                         
 
             # --- Handle Old txs ---
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 if not old_txs_4[i]: continue
                 
                 for tx in old_txs_4[i]:
@@ -235,7 +229,7 @@ def update_thread():
                         p_replace[p][f"st{i}"]['prevPrice'] = 0 if p_replace[p][f"st{i}"]['prevAmount'] == 0 else p_replace[p][f"st{i}"]['prevVolume'] / p_replace[p][f"st{i}"]['prevAmount']
                         p_replace[p][f"st{i}"]['d_price'] = 1 if p_replace[p][f"st{i}"]['prevPrice'] == 0 else p_replace[p]['price'] / p_replace[p][f"st{i}"]['prevPrice']
             
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 for p in p_replace.keys():
                     d_price = p_replace[p][f"st{i}"]['d_price']
                     d_price_affect = (d_price if d_price > 1 else 1 if d_price == 0 else 1 / d_price)
@@ -247,7 +241,7 @@ def update_thread():
             r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_replace.values()])
             # TODO sync with PG
             
-            for i in range(4):
+            for i in range(env.NUM_DURATIONS):
                 r.zadd(f"SS_PS{i}", {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
                 r.zadd(f"SS_PV{i}", {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
                 r.zadd(f"SS_PX{i}", {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})

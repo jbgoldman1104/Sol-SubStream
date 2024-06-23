@@ -8,10 +8,9 @@
     <script src="/common.js"></script>
     <script src="/charting_library/charting_library.js"></script>
     <script src="/socketio/socket.io.min.js"></script>
-    <script src="/tradingview/datafeed.js"></script>
   </head>
   <body class="flex items-center justify-center w-screen h-screen bg-[black]">
-    <div class="text-2E2E33 bg-[#0d0d0d] w-full h-full">
+    <div class="text-#2E2E33 bg-[#0d0d0d] w-full h-full">
       <div id="count" class="text-[16px]"></div>
 
       <div class="flex flex-col items-center justify-center px-3">
@@ -23,187 +22,220 @@
       </div>
     </div>
   </body>
-  <script type="text/javascript">
-    var count = 0;
-    var duration = 0;
-    var skip = 0;
-    var limit = 10;
-    var pool = "{{pool}}";
-    var txsort = "blockTime";
-    var idle = true;
+    <script type="text/javascript">
+        var count = 0;
+        var duration = 0;
+        var skip = 0;
+        var limit = 10;
+        var pool = "{{pool}}";
+        var filter = "";
+        var idle = true;
 
-    function setDuration(v) {
-      duration = v;
-      fetchData();
-    }
-    function setpool(v) {
-      pool = v;
-      fetchData();
-    }
-    function setTxSort(v) {
-      txsort = v;
-      fetchData();
-    }
-    function setSkip(v) {
-      skip = v;
-      fetchData();
-    }
-    function setLimit(v) {
-      limit = v;
-      fetchData();
-    }
-    function goBack() {
-      location.href = location.origin;
-    }
-    function fetchData() {
-      if (!idle || pool == undefined || pool == "") return;
-      idle = false;
-      count++;
-      document.getElementById("count").innerHTML = "request: " + count;
-      fetch(
-        "/api/tx/query?pool=" +
-          pool +
-          "&sort=" +
-          txsort +
-          "&skip=" +
-          skip +
-          "&limit=" +
-          limit +
-          ""
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          idle = true;
-          var html = "";
-          html +=
-            '<button class="flex items-center justify-center text-[15px] ml-4" onclick="goBack()">Back...</button>\
-                    <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold">\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');"> ' +
-            formatString(data["baseName"]) +
-            ' </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');"> ' +
-            formatString(data["quoteName"]) +
-            ' </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[250px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>\
-                            <a class="data_cell flex items-center justify-center border border-solid border-[2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>\
-                        </div>';
-          for (var i = 0; i < data["data"].length; i++) {
-            row = data["data"][i];
-            html +=
-              '<div class="data_row hover:bg-[#3A3A44] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">' +
-              '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> ' +
-              formatDate(row["date"]) +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[120px] h-[35px] pr-2 justify-center ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-right">' +
-              row["type"] +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-right"> ' +
-              f(row["usd"]) +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-right">' +
-              f(row["baseAmount"]) +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-center">' +
-              f(row["quoteAmount"]) +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[250px] h-[35px] pr-2 justify-end ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-right">$ ' +
-              f(row["price"]) +
-              '</div>\
-                            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
-              (row["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") +
-              ' text-right"> ' +
-              formatString(row["maker"]) +
-              "</div>\
-                        </div>";
-            if (chart == undefined) init();
-          }
-          document.getElementById("data-table").innerHTML = html;
+        var socket = io(location.origin + "/socket.io/tx", {debug: true});
+        // var socket = io(location.origin + "/socket.io/")
+        socket.on('connect', () => {
+            console.log('Connected to server')
+            subscribe_txs()
         })
-        .catch((error) => {
-          idle = true;
-          console.error("Error:", error);
-        });
-    }
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server')
+        })
 
-    fetchData();
-    //setInterval(fetchData, 1000);
+        function subscribe_txs() {
+            socket.emit('subscribe', {
+                type: "SUBSCRIBE_TXS", 
+                data: {
+                    pool, filter, skip, limit
+                }
+            })
+        }
 
-    var chart;
-    var idle = false;
+    //    {
+    //     "type": "RANK_DATA",
+    //     "data": {
+    //         "queryType": "simple",
+    //         "chartType": "1m",
+    //         "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm",
+    //         "currency": "pair"
+    //     }
+    // }
+        socket.on('message', (data) => {
+            console.log(data.type)
+            if (data.type == 'TXS_DATA_HISTORICAL') {
+                setTxData(data)
+            } else if (data.type == 'TXS_DATA_REALTIME') {
 
-    var interval = 1;
+            }
+        })
 
-    function init() {
-      const offset = (-1 * new Date().getTimezoneOffset()) / 60;
+        socket.on('reply_message', (data) => {
+            console.log(data)
+        })
 
-      symbol = "A";
-      if (symbol && interval) {
-        chart = window.tvWidget = new window.TradingView.widget({
-          enabled_features: ["custom_resolutions"],
-          allowed_time_frames: [
-            "1m",
-            "3m",
-            "5m",
-            "15m",
-            "30m",
-            "1h",
-            "2h",
-            "4h",
-            "1d",
-            "1w",
-            "1M",
-          ],
-          has_intraday: true,
-          symbol: symbol,
+        function setDuration(v) {
+        duration = v;
+        fetchData();
+        }
+        function setpool(v) {
+        pool = v;
+        fetchData();
+        }
+        function setTxSort(v) {
+        sort = v;
+        fetchData();
+        }
+        function setSkip(v) {
+        skip = v;
+        fetchData();
+        }
+        function setLimit(v) {
+        limit = v;
+        fetchData();
+        }
+        function goBack() {
+        location.href = location.origin;
+        }
+        function setTxData(data) {
+            var html = "";
+            html +=
+                '<button class="flex items-center justify-center text-[white] text-[15px] ml-4" onclick="goBack()">Back...</button>\
+                        <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold text-[white]">\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');"> ' +
+                formatString(data["baseName"]) +
+                ' </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');"> ' +
+                formatString(data["quoteName"]) +
+                ' </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[250px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>\
+                                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>\
+                            </div>';
+            for (var i = 0; i < data["data"].length; i++) {
+                row = data["data"][i];
+                html +=
+                '<div class="data_row hover:bg-[#3A3A44] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">' +
+                '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> ' +
+                formatDate(Number(row["blockUnixTime"]) * 1000) +
+                '</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[120px] h-[35px] pr-2 justify-center ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + row["from"]["type"] + '</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + f(row["volumeUSD"]) +'</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + f(row["from"]["amount"]) +'</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-center">' + f(row["to"]["amount"]) + '</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[250px] h-[35px] pr-2 justify-end ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">$ ' + f(row["from"]["price"]) + '</div>\
+                                <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
+                (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + formatString(row["owner"]) + "</div>\
+                            </div>";
+                if (chart == undefined) init();
+            }
+            document.getElementById("data-table").innerHTML = html;
+        }
+        function fetchData() {
+            subscribe_txs();
+            return
+        if (!idle || pool == undefined || pool == "") return;
+        idle = false;
+        count++;
+        document.getElementById("count").innerHTML = "request: " + count;
+        fetch(
+            "/api/tx/query?pool=" +
+            pool +
+            "&sort=" +
+            sort +
+            "&skip=" +
+            skip +
+            "&limit=" +
+            limit +
+            ""
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                idle = true;
+                setTxData(data)
+            })
+            .catch((error) => {
+                idle = true;
+                console.error("Error:", error);
+            });
+        }
 
-          fullscreen: false,
-          width: "100%",
-          height: "100%",
-          container_id: "tv_chart_container",
-          datafeed: Datafeed(pool),
-          library_path: "/charting_library/",
-          toolbar_bg: "#0b1217",
-          overrides: {
-            "paneProperties.rightMargin": 0,
-            "paneProperties.background": "#0b1217",
-            "paneProperties.backgroundType": "solid",
-            "paneProperties.backgroundGradientEndColor": "#0b1217",
-            "paneProperties.backgroundGradientStartColor": "#0b1217",
-            "paneProperties.vertGridProperties.color": "#E3E3E5", // Grid Vertical Lines Color
-            "paneProperties.horzGridProperties.color": "#E3E3E5", // Grid Horizontal Lines Color
-            "mainSeriesProperties.candleStyle.upColor": "#11CC9A", // Up Candle Color
-            "mainSeriesProperties.candleStyle.downColor": "#E20E7C", // Down Candle Color
-            "mainSeriesProperties.candleStyle.borderUpColor": "#11CC9A", // Up Candle Border Color
-            "mainSeriesProperties.candleStyle.borderDownColor": "#E20E7C", // Down Candle Border Color
-            "mainSeriesProperties.candleStyle.drawBorder": false, // Disable candle borders
-            "mainSeriesProperties.minTick": "100000000,1,false",
-            "scalesProperties.textSize": 18,
-            "scalesProperties.showLeftScale": false,
-          },
-          disabled_features: ["header_symbol_search"],
-          time_frames: timeFrames,
-          theme: "Dark",
-          timezone: TIMEZONE[offset][0],
-          interval: interval,
-        });
+        // fetchData();
+        //setInterval(fetchData, 1000);
 
-        chart.onChartReady(async () => {
-          chart.activeChart().setTimezone("UTC");
-        });
-      }
-    }
-  </script>
+    </script>
+    <script src="/tradingview/datafeed.js"></script>
+
+    <script type="text/javascript">
+
+        var chart;
+        var idle = false;
+
+        var interval = 1;
+
+        function init() {
+        const offset = (-1 * new Date().getTimezoneOffset()) / 60;
+
+        symbol = "A";
+        if (symbol && interval) {
+            chart = window.tvWidget = new window.TradingView.widget({
+            enabled_features: ["custom_resolutions"],
+            allowed_time_frames: [
+                "1m",
+                "3m",
+                "5m",
+                "15m",
+                "30m",
+                "1h",
+                "2h",
+                "4h",
+                "1d",
+                "1w",
+                "1M",
+            ],
+            has_intraday: true,
+            symbol: symbol,
+
+            fullscreen: false,
+            width: "100%",
+            height: "100%",
+            container_id: "tv_chart_container",
+            datafeed: Datafeed(pool),
+            library_path: "/charting_library/",
+            toolbar_bg: "#0b1217",
+            overrides: {
+                "paneProperties.rightMargin": 0,
+                "paneProperties.background": "#0b1217",
+                "paneProperties.backgroundType": "solid",
+                "paneProperties.backgroundGradientEndColor": "#0b1217",
+                "paneProperties.backgroundGradientStartColor": "#0b1217",
+                "paneProperties.vertGridProperties.color": "#E3E3E5", // Grid Vertical Lines Color
+                "paneProperties.horzGridProperties.color": "#E3E3E5", // Grid Horizontal Lines Color
+                "mainSeriesProperties.candleStyle.upColor": "#11CC9A", // Up Candle Color
+                "mainSeriesProperties.candleStyle.downColor": "#E20E7C", // Down Candle Color
+                "mainSeriesProperties.candleStyle.borderUpColor": "#11CC9A", // Up Candle Border Color
+                "mainSeriesProperties.candleStyle.borderDownColor": "#E20E7C", // Down Candle Border Color
+                "mainSeriesProperties.candleStyle.drawBorder": false, // Disable candle borders
+                "mainSeriesProperties.minTick": "100000000,1,false",
+                "scalesProperties.textSize": 18,
+                "scalesProperties.showLeftScale": false,
+            },
+            disabled_features: ["header_symbol_search"],
+            time_frames: timeFrames,
+            theme: "Dark",
+            timezone: TIMEZONE[offset][0],
+            interval: interval,
+            });
+
+            chart.onChartReady(async () => {
+            chart.activeChart().setTimezone("UTC");
+            });
+        }
+        }
+    </script>
 </html>

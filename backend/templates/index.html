@@ -54,19 +54,19 @@
     // var socket = io(location.origin + "/socket.io/")
     socket.on('connect', () => {
         console.log('Connected to server')
-        subscribe_rank()
+        subscribe_pairs()
     })
     socket.on('disconnect', () => {
         console.log('Disconnected from server')
     })
 
-    function subscribe_rank() {
-        socket.emit('subscribe', JSON.stringify({
-            type: "SUBSCRIBE_RANK", 
+    function subscribe_pairs() {
+        socket.emit('subscribe', {
+            type: "SUBSCRIBE_PAIRS", 
             data: {
                 duration, sort, sort_dir, skip, limit
             }
-        }))
+        })
     }
 
 //    {
@@ -78,7 +78,7 @@
 //         "currency": "pair"
 //     }
 // }
-    socket.on('PAIRS_DATA', (data) => {
+    socket.on('message', (data) => {
         console.log(data)
         if (data.type == 'PAIRS_DATA') {
             setData(data.data)
@@ -176,7 +176,7 @@
         element.innerHTML = html
     }
     function fetchData() {
-        subscribe_rank()
+        subscribe_pairs()
         return
         if (!idle) return
         idle = false

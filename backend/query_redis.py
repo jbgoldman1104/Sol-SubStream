@@ -24,6 +24,55 @@ def convert_to_custom_format(number):
     
     return result
 
+
+# in {
+#     "type": "SUBSCRIBE_PAIRS",
+#     "data": {
+#         "duration": 0,
+#         "skip": 0,
+#         "limit": 100,
+#         "sort": "score",
+#         "sort_dir": "desc",
+#     }
+# }
+
+    
+# {
+#     "type": "SUBSCRIBE_TXS",
+#     "data": {
+#         "queryType": "simple",
+#         "pool": "842NwDnKYcfMRWAYqsD3hoTWXKKMi28gVABtmaupFcnS"
+#         "filter": "volume > 10000"
+#         "skip": 0
+#         "limit": 100
+#     }
+# }
+
+# {
+#     "type": "SUBSCRIBE_PRICE",
+#     "data": {
+#         "queryType": "simple",
+#         "chartType": "1m",
+#         "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm",
+#         "currency": "pair"
+#     }
+# }
+def query_wrap(ns, data):
+    if not data: return {}
+    try:
+        js = json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        js = json.loads(data.replace("\'", "\""))
+    if not js or not js['data']: return {}
+    param = js['data']
+    if js['type'] == 'SUBSCRIBE_PAIRS':
+        return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
+    elif js['type'] == 'SUBSCRIBE_TXS':
+        return query_tx(param['pool'], param['filter'], param['skip'], param['limit'])
+    elif js['type'] == 'PRICE_DATA_HISTORICAL':
+        return query_price_historical(param['address'], param['address_type'], param['type'], param['time_from'], param['time_to'])
+   
+   
 # {
 #   "type": "PAIRS_DATA",
 #   "data": [{
@@ -79,15 +128,7 @@ def get_pairs(pids):
         'data': [{'type': 'PAIR_DATA', 'data': item} for item in rlt]
         }
 
-def query_wrap(ns, data):
-    if not data: return {}
-    js = json.loads(data)
-    if not js: return {}
-    if js['type'] == 'SUBSCRIBE_RANK':
-        return query_st(js['data']['duration'], js['data']['skip'], js['data']['limit'], js['data']['sort'], js['data']['sort_dir'])
-    # elif js == env.NS_TX:
-    #     return query_tx(data['duration'], data['skip'], data['limit'], data['sort'], data['sort_dir'])
-    
+ 
 def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "score", sort_dir: str = "desc"):
     _b('query_st')
     
@@ -117,79 +158,113 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
 
 # {
 #   type: 'TXS_DATA',
-#   data: {
-#     blockUnixTime: 1714107255,
-#     owner: 'TyrZ6SDVQGdMpnYtAgKGocvi1w1mdffhZENf1knyeqy',
-#     source: 'raydium',
-#     txHash: '3XtCydTzZPJNGr9qQ83rvkKyGQHMQcUa3QpgBZoz97i3VkRGL3e8UBhM7JUnprwbcgWXeHXST74NeaEE4vjWeEME',
-#     alias: null,
-#     isTradeOnBe: false,
-#     platform: 'YmirFH6wUrtUMUmfRPZE7TcnszDw689YNWYrMgyB55N',
-#     volumeUSD: 31.569239727896086,
-#     from: {
-#       symbol: 'SOL',
-#       decimals: 9,
-#       address: 'So11111111111111111111111111111111111111112',
-#       amount: 219852856,
-#       type: 'transfer',
-#       typeSwap: 'from',
-#       uiAmount: 0.219852856,
-#       price: null,
-#       nearestPrice: 143.5925841595439,
-#       changeAmount: -219852856,
-#       uiChangeAmount: -0.219852856,
-#       icon: null
-#     },
-#     to: {
-#       symbol: 'TOM',
-#       decimals: 9,
-#       address: '2rJSfgxoWP7h3rw3hDUF7HPToY3exb6FdH9xFBg7TeQk',
-#       amount: 650244687263,
-#       type: 'transfer',
-#       typeSwap: 'to',
-#       feeInfo: null,
-#       uiAmount: 650.244687263,
-#       price: 0.048549784944459676,
-#       nearestPrice: 0.048420900217275124,
-#       changeAmount: 650244687263,
-#       uiChangeAmount: 650.244687263,
-#       icon: null
-#     }
-#   }
+#   
+#   data: [{
+#        blockUnixTime: 1714107255,
+#        owner: 'TyrZ6SDVQGdMpnYtAgKGocvi1w1mdffhZENf1knyeqy',
+#        source: 'raydium',
+#        txHash: '3XtCydTzZPJNGr9qQ83rvkKyGQHMQcUa3QpgBZoz97i3VkRGL3e8UBhM7JUnprwbcgWXeHXST74NeaEE4vjWeEME',
+#        alias: null,
+#        isTradeOnBe: false,
+#        platform: 'YmirFH6wUrtUMUmfRPZE7TcnszDw689YNWYrMgyB55N',
+#        volumeUSD: 31.569239727896086,
+#        from: {
+#          symbol: 'SOL',
+#          decimals: 9,
+#          address: 'So11111111111111111111111111111111111111112',
+#          amount: 219852856,
+#          type: 'transfer',
+#          typeSwap: 'from',
+#          uiAmount: 0.219852856,
+#          price: null,
+#          nearestPrice: 143.5925841595439,
+#          changeAmount: -219852856,
+#          uiChangeAmount: -0.219852856,
+#          icon: null
+#        },
+#        to: {
+#          symbol: 'TOM',
+#          decimals: 9,
+#          address: '2rJSfgxoWP7h3rw3hDUF7HPToY3exb6FdH9xFBg7TeQk',
+#          amount: 650244687263,
+#          type: 'transfer',
+#          typeSwap: 'to',
+#          feeInfo: null,
+#          uiAmount: 650.244687263,
+#          price: 0.048549784944459676,
+#          nearestPrice: 0.048420900217275124,
+#          changeAmount: 650244687263,
+#          uiChangeAmount: 650.244687263,
+#          icon: null
+#        }
+#    }]
 # }
-def query_tx(pool: str = "", sort: str = "blockTime", direction = "desc", skip: int = 0, limit: int = 100):
+def query_tx(address: str = "", filter = "", skip: int = 0, limit: int = 100):
     _b('query_tx')
-    if not pool: return []
-    pid = r.hget('H_P', pool)
+    if not address: return []
+    pid = r.hget('H_P', address)
     if not pid: return []
     pid = pid.decode() # type: ignore
-    query = Query(f'@pid:[{pid} {pid}]').paging(skip, limit).sort_by(sort, asc = False if direction == "desc" else True)
+    query = Query(f'@pid:[{pid} {pid}]').paging(skip, limit).sort_by("blockTime", asc = False)
     rlt = r.ft("IDX_TX").search(query)
     # t = r.json().get(f"P:{pid}")
     r.zadd('SS_PR', {f'{pid}': common.now()})
     rows = [json.loads(doc['json']) for doc in rlt.docs] # type: ignore
-    data = [] # TODO txId duplication?
-    for row in rows:
-        data.append({
-            "date": row['blockTime'],
-            "type": row['type'], 
-            "usd": 0 if row['price'] == 0 else abs(row['baseAmount'] * row['price']),
-            "baseAmount": abs(row['baseAmount']),
-            "quoteAmount": abs(row['quoteAmount']),
-            "price": row['price'],
-            "maker": row['signer'],
-            "txId": row['txId'],
-        })
     
-    # split = pair.split('/')
     # TODO mintAddress.
     split = common.getMintAddresses(r, pid)
     tids = r.hmget('H_T', [split[0], split[1]])
     tids = [item.decode() for item in tids] # type: ignore
-    names = r.json().mget([f'T:{tids[0]}', f'T:{tids[1]}'], "$.symbol") # type: ignore
+    ts = r.json().mget([f'T:{tids[0]}', f'T:{tids[1]}'], ".") # type: ignore
+    
+    data = [] # TODO txId duplication?
+    for row in rows:
+        dex = r.json().get(f'D:{row["outerProgram"]}')
+        data.append({
+            "blockUnixTime": row['blockTime'],
+            "owner": row['signer'],
+            "source": '' if not dex else dex['name'],
+            "txHash": row['txId'],
+            "alias": None,  # TODO
+            "isTradeOnBe": False,
+            "platform": row['outerProgram'],
+            "volumeUSD": 0 if row['price'] == 0 else abs(row['baseAmount'] * row['price']),
+            "from": {
+                "symbol": ts[0]['symbol'] if ts[0]['symbol'] else ts[0]['mint'],
+                "decimals": ts[0]['decimals'],
+                "address": ts[0]['mint'],
+                "amount": abs(row['baseAmount']),
+                "type": row['type'],
+                "typeSwap": row['instructionType'],
+                "uiAmount": abs(row['baseAmount']) / (10.0 ** ts[0]['decimals']),
+                "price": row['price'],
+                "nearestPrice": row['price'], # ?
+                "changeAmount": row['baseAmount'],
+                "uiChangeAmount": row['baseAmount'] / (10.0 ** ts[0]['decimals']),
+                "icon": ts[0]['image']
+            },
+            "to": {
+                "symbol": ts[1]['symbol'] if ts[1]['symbol'] else ts[1]['mint'],
+                "decimals": ts[1]['decimals'],
+                "address": ts[1]['mint'],
+                "amount": abs(row['quoteAmount']),
+                "type": "Buy" if row['type'] == "Sell" else "Sell",
+                "typeSwap": row['instructionType'],
+                "uiAmount": abs(row['quoteAmount']) / (10.0 ** ts[1]['decimals']),
+                "price": row['price'] * abs(row['baseAmount'] / row['quoteAmount']),
+                "nearestPrice": row['price'] * abs(row['baseAmount'] / row['quoteAmount']), # ?
+                "changeAmount": row['quoteAmount'],
+                "uiChangeAmount": row['quoteAmount'] / (10.0 ** ts[1]['decimals']),
+                "icon": ts[1]['image']
+            },
+        })
+    
+    # split = pair.split('/')
+    
     rlt = {
-        "baseName": names[0] if names[0] and names[0][0] else split[0],
-        "quoteName": names[1] if names[1] and names[1][0] else split[1],
+        "type": "TXS_DATA_HISTORICAL",
+        "baseName": ts[0]['symbol'] if ts[0]['symbol'] and ts[0]['symbol'] else split[0],
+        "quoteName": ts[1]['symbol'] if ts[1]['symbol'] and ts[1]['symbol'] else split[1],
         "data": data
     }
     _b()
@@ -210,44 +285,57 @@ def query_tx(pool: str = "", sort: str = "blockTime", direction = "desc", skip: 
 #     "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
 #   }
 # }
-def query_chart(pool: str = "", t_from: int = 0, t_to: int = 0, interval: int = 0):
-    _b('query_chart')
-    if not pool or interval < 0 or interval > 7: return []
+def query_price_realtime(address: str = "", address_type: str = "pair", type: str = "15m"):
+    interval = env.INTERVALS[type]
+    if not address or not interval: return []
     
-    pid = r.hget('H_P', pool)
+def query_price_historical(address: str = "", address_type: str = "pair", type: str = '15m', time_from: int = 0, time_to: int = 0):
+    _b('query_price_historical')
+    interval = env.INTERVALS[type]
+    if not address or not interval: return []
+    
+    pid = r.hget('H_P', address)
     if not pid: return []
     pid = pid.decode() # type: ignore
     
-    if t_to == 0:
-        rows1 = r.ts().revrange(f'TS_PO{pid}:{interval}', '-', '+', 30)
+    if time_to == 0:   # First Historical Price
+        rows1 = r.ts().revrange(f'TS_PO{pid}:{interval}', '-', '+', time_from // env.BD[interval])
         rows1.reverse()
-        rows2 = r.ts().revrange(f'TS_PH{pid}:{interval}', '-', '+', 30)
+        rows2 = r.ts().revrange(f'TS_PH{pid}:{interval}', '-', '+', time_from // env.BD[interval])
         rows2.reverse()
-        rows3 = r.ts().revrange(f'TS_PL{pid}:{interval}', '-', '+', 30)
+        rows3 = r.ts().revrange(f'TS_PL{pid}:{interval}', '-', '+', time_from // env.BD[interval])
         rows3.reverse()
-        rows4 = r.ts().revrange(f'TS_PC{pid}:{interval}', '-', '+', 30)
+        rows4 = r.ts().revrange(f'TS_PC{pid}:{interval}', '-', '+', time_from // env.BD[interval])
         rows4.reverse()
-        
+        rows5 = r.ts().revrange(f'TS_V{pid}:{interval}', '-', '+', time_from // env.BD[interval])
+        rows5.reverse()
     else:
-        t_from *= 1000
-        t_to *= 1000
         # t_from -= common.now() - 1718392375000
         # t_to -= common.now() - 1718392375000
-        rows1 = r.ts().range(f'TS_PO{pid}:{interval}', t_from, t_to)
-        rows2 = r.ts().range(f'TS_PH{pid}:{interval}', t_from, t_to)
-        rows3 = r.ts().range(f'TS_PL{pid}:{interval}', t_from, t_to)
-        rows4 = r.ts().range(f'TS_PC{pid}:{interval}', t_from, t_to)
+        rows1 = r.ts().range(f'TS_PO{pid}:{interval}', time_from, time_to)
+        rows2 = r.ts().range(f'TS_PH{pid}:{interval}', time_from, time_to)
+        rows3 = r.ts().range(f'TS_PL{pid}:{interval}', time_from, time_to)
+        rows4 = r.ts().range(f'TS_PC{pid}:{interval}', time_from, time_to)
+        rows5 = r.ts().range(f'TS_V{pid}:{interval}', time_from, time_to)
         
+    symbols = ['A', 'B'] #common.getSymbols(r, pid)
+    pair_symbol = symbols[0] + '-' + symbols[1]
     data = []
     for i in range(len(rows1)):
-        data.append({"time": rows1[i][0], 
-                     "open": rows1[i][1], 
-                     "high": rows2[i][1], 
-                     "low": rows3[i][1], 
-                     "close": rows4[i][1],
-                     "volume": rows4[i][1]})
+        data.append({"unixTime": rows1[i][0], 
+                     "o": rows1[i][1], 
+                     "h": rows2[i][1], 
+                     "l": rows3[i][1], 
+                     "c": rows4[i][1],
+                     "v": rows5[i][1],
+                     "eventType": "ohlcv",
+                     "type": type,
+                     "symbol": pair_symbol,
+                     "address": address})
     _b()
+    
     rlt = {
+        "type": 'PRICE_DATA_HISTORICAL',
         "data": data
     }
     return rlt
@@ -278,7 +366,7 @@ def search_pair(q: str = "", skip: int = 0, limit: int = 10):
     return rlt
 
 if __name__ == "__main__":
-    aa = query_wrap(env.NS_ST, '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}')
+    aa = query_wrap(env.NS_ST, '{"type":"SUBSCRIBE_PAIRS","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}')
     bb = 1
     # print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
     # print(common.getMintAddresses(r, '1'))
