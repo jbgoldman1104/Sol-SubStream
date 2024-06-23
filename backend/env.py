@@ -17,7 +17,7 @@ DB_NAME = 'dex_trade'
 DB_USER = 'postgres'
 DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
 
-UPDATE_INTERVAL = 3
+UPDATE_INTERVAL = 2000
 # DURATION = (1 * 6000, 2 * 6000, 3 * 6000, 4 * 6000)
 DURATION = (5 * 60000, 60 * 60000, 360 * 60000, 24 * 60 * 60000)
 PREV_SUM_LENGTH = (60000)
@@ -52,3 +52,8 @@ BD = [SEC, MIN, MIN5, MIN30, HOUR, HOUR2, WEEK]
 API_KEY_TEST = "https://rpc.hellomoon.io/00f4178d-d782-4d0e-ac29-02706daa7be2"
 API_KEY1 = "https://empty-responsive-ensemble.solana-mainnet.quiknode.pro/d317177c944fa95629761e0484360b336177a75e/"
 API_KEY2 = "https://skilled-blissful-waterfall.solana-mainnet.quiknode.pro/d1bbbd179348df7e05a449d81fb7cdde96e589dc/"
+
+NS_ST = '/socket.io/st'
+NS_TX = '/socket.io/tx'
+
+NSS = [NS_ST, NS_TX]

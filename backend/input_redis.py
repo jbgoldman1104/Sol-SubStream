@@ -257,7 +257,10 @@ def update_thread():
             r.zadd(f"SS_PM", {p["id"] : p["mcap"] for p in p_replace.values()})
 
             # TODO sync with PG
+            conn.commit()
             
+            r.lpush('L_UPDATED', f'{common.now()}')
+
             t_end = datetime.datetime.now()
             r.xadd("UPDATE_RANK", {"date": str(t_end)})
             print(f'-- Input Redis ---({rep}): blockId: {new_txs[0][2]["blockSlot"]} =>\
@@ -266,8 +269,6 @@ def update_thread():
             TS: {(t_end2 - t_start2).total_seconds()} s\
             OTHERS:{((t_end - t_start) - (t_end1 - t_start1) - (t_end2 - t_start2)).total_seconds()} s)')
             rep += 1
-            
-            conn.commit()
         conn.close()
 
     # except Exception as e:

@@ -78,8 +78,11 @@
 //         "currency": "pair"
 //     }
 // }
-    socket.on('message', (data) => {
+    socket.on('PAIRS_DATA', (data) => {
         console.log(data)
+        if (data.type == 'PAIRS_DATA') {
+            setData(data.data)
+        }
     })
 
     socket.on('reply_message', (data) => {
@@ -120,7 +123,8 @@
             <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[150px] h-[40px] text-center font-bold" href="javascript:setSort(\'mcap\')"> market cap </a>\
         </div>'
       for (var i = 0; i < data.length; i++) {
-        row = data[i]
+        // assert(data[i].type == 'PAIR_DATA')
+        row = data[i].data
         st = row["st" + duration]
         html +=
           '<div class="data_row flex hover:bg-[#3A3A44] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\'' +
@@ -167,20 +171,24 @@
           "</div>\
                   </div>"
       }
+      element = document.getElementById("data-table")
+      if (element != undefined)
+        element.innerHTML = html
     }
     function fetchData() {
-      if (!idle) return
-      idle = false
-      count++
-      document.getElementById("count").innerHTML = "request: " + count
-      fetch(
-        "/api/st/query?duration=" + duration + "&sort=" + sort + "&skip=" + skip + "&limit=" + limit + ""
-      )
+        subscribe_rank()
+        return
+        if (!idle) return
+        idle = false
+        count++
+        document.getElementById("count").innerHTML = "request: " + count
+        fetch(
+            "/api/st/query?duration=" + duration + "&sort=" + sort + "&skip=" + skip + "&limit=" + limit + ""
+        )
         .then((response) => response.json())
         .then((data) => {
           idle = true
-          setData(data)
-          document.getElementById("data-table").innerHTML = html
+          setData(data.data)
         })
         .catch((error) => {
           idle = true

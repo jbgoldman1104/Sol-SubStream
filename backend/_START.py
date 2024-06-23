@@ -13,15 +13,10 @@ async def start():
     initThread = asyncio.create_task(init.init_redis())
     inputRedisThread = asyncio.create_task(input_redis.update_thread())
     # manageCacheThread = asyncio.create_task(manage_tx_cache.update_cache_thread())
-
-
-    initThread.cancel()
-    inputRedisThread.cancel()
-    # manageCacheThread.cancel()
     await initThread
     await inputRedisThread
     # await manageCacheThread
     
     
 if __name__ == "__main__":
-    rlt = start()
+    asyncio.run(start())

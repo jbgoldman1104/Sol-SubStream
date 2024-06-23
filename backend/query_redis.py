@@ -26,7 +26,7 @@ def convert_to_custom_format(number):
 
 # {
 #   "type": "PAIRS_DATA",
-#   "data": {
+#   "data": [{
 #     "base" {
 #       "Name": "Wrapped SOL",
 #       "Symbol": SOL,
@@ -40,7 +40,7 @@ def convert_to_custom_format(number):
 
 #     "quoteName": "SOL-USDC",
 #     "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
-#   }
+#   }]
 # }
 
 def get_pairs(pids):
@@ -74,28 +74,31 @@ def get_pairs(pids):
 
             if not rlt[i]['baseImage']: rlt[i]['baseImage'] = '' # type: ignore
             if not rlt[i]['quoteImage']: rlt[i]['quoteImage'] = '' # type: ignore
-    return rlt
+    return {
+        'type':'PAIRS_DATA', 
+        'data': [{'type': 'PAIR_DATA', 'data': item} for item in rlt]
+        }
 
-
+def query_wrap(ns, data):
+    if not data: return {}
+    js = json.loads(data)
+    if not js: return {}
+    if js['type'] == 'SUBSCRIBE_RANK':
+        return query_st(js['data']['duration'], js['data']['skip'], js['data']['limit'], js['data']['sort'], js['data']['sort_dir'])
+    # elif js == env.NS_TX:
+    #     return query_tx(data['duration'], data['skip'], data['limit'], data['sort'], data['sort_dir'])
+    
 def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "score", sort_dir: str = "desc"):
     _b('query_st')
     
-    if sort == "score":
-        set = f"SS_PS{duration}"
-    elif sort == "price":
-        set = f"SS_PP"
-    elif sort == "volume":
-        set = f"SS_PV{duration}"
-    elif sort == "txns":
-        set = f"SS_PX{duration}"
-    elif sort == "ratio":
-        set = f"SS_PPR{duration}"
-    elif sort == "liq":
-        set = f"SS_PL"
-    elif sort == "mcap":
-        set = f"SS_PM"
-    else:
-        return []
+    if sort == "score": set = f"SS_PS{duration}"
+    elif sort == "price": set = f"SS_PP"
+    elif sort == "volume": set = f"SS_PV{duration}"
+    elif sort == "txns": set = f"SS_PX{duration}"
+    elif sort == "ratio": set = f"SS_PPR{duration}"
+    elif sort == "liq": set = f"SS_PL"
+    elif sort == "mcap": set = f"SS_PM"
+    else: return []
         
     if sort_dir == "desc":
         rank = r.zrevrange(set, skip, skip + limit - 1)    
@@ -275,7 +278,9 @@ def search_pair(q: str = "", skip: int = 0, limit: int = 10):
     return rlt
 
 if __name__ == "__main__":
-    print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
+    aa = query_wrap(env.NS_ST, '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}')
+    bb = 1
+    # print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
     # print(common.getMintAddresses(r, '1'))
     # print(query_chart('A1BBtTYJd4i3xU8D6Tc2FzU6ZN4oXZWXKZnCxwbHXr8x', 1718629188, 1718727888, 2))
     # print(query_chart('2mCaQrTySFYQtmrKxQxMHBdqHnm2mTx9hMRUbFuNz4Jx', 0, 0, 2))

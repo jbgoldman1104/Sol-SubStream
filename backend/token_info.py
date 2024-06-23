@@ -159,6 +159,5 @@ async def token_thread():
 if __name__ == "__main__":
     asyncio.run(token_thread())
     # print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
-    pass
 
 
