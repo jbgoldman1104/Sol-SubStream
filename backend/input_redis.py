@@ -2,6 +2,7 @@ from typing import ParamSpecArgs
 import env
 import common
 import asyncio
+import socketio
 import datetime
 import time
 from redis.commands.search.query import Query
@@ -10,11 +11,25 @@ from redis.commands.json.path import Path
 
 from random import random as rd
 from random import randint as rdi
+import query_redis
+mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=True)
 
 # class Block:
     # pass
+async def query_send(ns, data, payload):
+    print(f'input_redis: query_send : {data}')
+    try:
+        js = json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        js = json.loads(data.replace("\'", "\""))
+    if not js or not js['data']: return {}
 
-def update_thread():
+    if js['type'] == 'TXS_DATA_REALTIME':
+        rlt = query_redis.query_wrap('', js, payload)
+        if rlt and rlt['data']:
+            await mgr.emit('TX_DATA', rlt, room=data, namespace=ns)
+        
+async def update_thread():
     # try:
         r = common.connect_redis()
         conn = common.connect_db()
@@ -72,18 +87,18 @@ def update_thread():
                 blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
             # TODO lifetime, Only Hot Tx
             # r.json().mset(new_txs) # type: ignore
-            new_txs_cache = []
+            new_txs_sel = []
             for tx in new_txs:
                 # if r.sismember('S_C', common.poolToId(cur, r, tx[2]['poolAddress'], f'{tx[2]["baseMint"]}/{tx[2]["quoteMint"]}')):
-                    new_txs_cache.append(tx)
+                    new_txs_sel.append(tx)
             
             
             # -- TS_i --
             r.ts().madd([(f'TS_P{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs])
             r.ts().madd([(f'TS_V{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs])
 
-            if new_txs_cache:
-                r.json().mset(new_txs_cache) # type: ignore
+            if new_txs_sel:
+                r.json().mset(new_txs_sel) # type: ignore
             r.zadd('SS_BLK', {blk_value: now})
             # TODO Sync with PG
             
@@ -255,9 +270,30 @@ def update_thread():
             
             r.lpush('L_UPDATED', f'{common.now()}')
 
+            # --- Send TXS_DATA ---
+            payload = {}
+            for i in range(len(new_txs)):
+                tx = new_txs[len(new_txs) - i - 1][2]
+                pool = tx['poolAddress']
+                if pool not in payload:
+                    payload[pool] = []
+                payload[pool].append(tx)
+            
+            tasks = []
+            for ns in env.NSS:
+                rs = r.zrevrange(f'SS_RO{ns}', 0, -1, withscores=True)
+                # print(rs)
+                rooms = set()
+                for room in rs:
+                    if room and room[1] and room[1] > 0:
+                        rooms.add(room[0].decode())
+                for room in rooms:
+                    tasks.append(asyncio.create_task(query_send(ns, room, payload)))
+            if tasks:
+                await asyncio.gather(*tasks)
+            
             t_end = datetime.datetime.now()
-            r.xadd("UPDATE_RANK", {"date": str(t_end)})
-            print(f'-- Input Redis ---({rep}): blockId: {new_txs[0][2]["blockSlot"]} =>\
+            print(f'--- Input Redis ---({rep}): blockId: {new_txs[0][2]["blockSlot"]} =>\
             {(t_end - t_start).total_seconds()} s\
             (DB: {(t_end1 - t_start1).total_seconds()} s\
             TS: {(t_end2 - t_start2).total_seconds()} s\
@@ -270,4 +306,4 @@ def update_thread():
     
 
 if __name__ == "__main__":
-    rlt = update_thread()
+    asyncio.run(update_thread())

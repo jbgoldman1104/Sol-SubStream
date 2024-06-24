@@ -7,6 +7,10 @@ from random import randint as rdi
 # import token_info
 import json
 import os
+import socketio
+
+# def get_redis_manager():
+#     socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=True)
 
 def connect_redis():
     return redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT)

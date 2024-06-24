@@ -8,8 +8,7 @@ import query_redis
 from benchmark import _b
 
 r = common.connect_redis()
-
-mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=False)
+mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=True)
 
 async def query_send(ns, data):
     try:
@@ -20,7 +19,7 @@ async def query_send(ns, data):
 
     if js['type'] == 'SUBSCRIBE_PRICE':
         await mgr.emit('PRICE_DATA', query_redis.query_wrap('', js), room=data, namespace=ns)
-    else:
+    elif js['type'] != 'TXS_DATA_REALTIME':
         await mgr.emit('message', query_redis.query_wrap('', js), room=data, namespace=ns)
 
     
@@ -28,13 +27,10 @@ async def send_data_thread():
     prev = 0
     while True:
         r.ltrim('L_UPDATED', 0, 0)
-        cmd = r.brpop('L_UPDATED', timeout=env.UPDATE_INTERVAL)[1].decode() # TODO timeout
+        cmd = r.brpop('L_UPDATED', timeout=env.UPDATE_INTERVAL*5)[1].decode() # TODO timeout
         if cmd == 'QUIT': break
-        now = common.now()
-        print(f'send: {now - prev}: {(env.UPDATE_INTERVAL + prev - now)}')
-        if now - prev < env.UPDATE_INTERVAL:
-            await asyncio.sleep((env.UPDATE_INTERVAL + prev - now) / 1000)
-        prev = common.now()
+        
+        # new_txs = r.xread( streams = {"NEW_TXS": 0}, block = 10000000 )
         
         tasks = []
         for ns in env.NSS:
@@ -49,7 +45,13 @@ async def send_data_thread():
 
         _b(f'query_send {len(tasks)}')
         if not tasks: continue
-        asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
+
+        now = common.now()
+        print(f'send: {now - prev}: {(env.UPDATE_INTERVAL + prev - now)}')
+        if now - prev < env.UPDATE_INTERVAL:
+            await asyncio.sleep((env.UPDATE_INTERVAL + prev - now) / 1000)
+        prev = common.now()
 
 if __name__ == "__main__":
     asyncio.run(send_data_thread())

@@ -96,6 +96,15 @@ async def unsubscribe(sid, data):
     print(f'--- Unsubscribe ST ---: {sid} : {data}')
     leave(sid, data, env.NS_ST)
     
+@sio.event(namespace=env.NS_ST)
+async def data(sid, data):
+    print(f'--- Data ST ---: {sid} : {data}')
+    try:
+        js = json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        js = json.loads(data.replace("\'", "\""))
+    if not js or not js['data']: return {}
+    return query_redis.query_wrap('', js)
 
 @sio.event(namespace=env.NS_TX)
 async def connect(sid, environ):
@@ -121,7 +130,12 @@ async def unsubscribe(sid, data):
 @sio.event(namespace=env.NS_TX)
 async def data(sid, data):
     print(f'--- Data TX ---: {sid} : {data}')
-    return query_redis.query_wrap('', data)
+    try:
+        js = json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        js = json.loads(data.replace("\'", "\""))
+    if not js or not js['data']: return {}
+    return query_redis.query_wrap('', js)
     
 
 

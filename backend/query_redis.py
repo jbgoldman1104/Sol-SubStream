@@ -24,16 +24,21 @@ def convert_to_custom_format(number):
     
     return result
 
-def query_wrap(ns, js):
+def query_wrap(ns, js, payload = None):
     param = js['data']
-    if js['type'] == 'SUBSCRIBE_PAIRS':
+    if js['type'] == 'GET_PAIRS':
+        return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
+    elif js['type'] == 'SUBSCRIBE_PAIRS':
         return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
     elif js['type'] == 'TXS_DATA_HISTORICAL':
         return query_tx_historical(param['pool'], param['filter'], param['skip'], param['limit'])
+    elif js['type'] == 'TXS_DATA_REALTIME':
+        return query_tx_realtime(payload, param['pool'], param['filter'])
     elif js['type'] == 'PRICE_DATA_HISTORICAL':
         return query_price_historical(param['address'], param['address_type'], param['type'], param['time_from'], param['time_to'])
     elif js['type'] == 'SUBSCRIBE_PRICE':
         return query_price_realtime(param['address'], param['address_type'], param['type'])
+    
    
 def get_pairs(pids):
     if not pids: return []
@@ -63,13 +68,12 @@ def get_pairs(pids):
             rlt[i]['quoteTwitter'] = ts[2*i+1]['twitter'] # type: ignore
             rlt[i]['quoteWebsite'] = ts[2*i+1]['website'] # type: ignore
 
-
             if not rlt[i]['baseImage']: rlt[i]['baseImage'] = '' # type: ignore
             if not rlt[i]['quoteImage']: rlt[i]['quoteImage'] = '' # type: ignore
     return {
         'type':'PAIRS_DATA', 
         'data': [{'type': 'PAIR_DATA', 'data': item} for item in rlt]
-        }
+    }
 
  
 def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "score", sort_dir: str = "desc"):
@@ -143,7 +147,7 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
 #    }]
 # }
 def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: int = 100):
-    _b('query_tx')
+    _b('query_tx_historical')
     if not address: return []
     pid = r.hget('H_P', address)
     if not pid: return []
@@ -206,12 +210,82 @@ def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: in
     
     rlt = {
         "type": "TXS_DATA_HISTORICAL",
-        "baseName": ts[0]['symbol'] if ts[0]['symbol'] and ts[0]['symbol'] else split[0],
-        "quoteName": ts[1]['symbol'] if ts[1]['symbol'] and ts[1]['symbol'] else split[1],
+        "baseSymbol": ts[0]['symbol'] if ts[0]['symbol'] and ts[0]['symbol'] else split[0],
+        "quoteSymbol": ts[1]['symbol'] if ts[1]['symbol'] and ts[1]['symbol'] else split[1],
         "data": data
     }
     _b()
     return rlt
+
+def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, limit: int = 100):
+    _b('query_tx_realtime')
+    if not address: return {}
+    if address not in payload: return {}
+    rows = payload[address]
+    
+    pid = r.hget('H_P', address)
+    if not pid: return []
+    pid = pid.decode() # type: ignore
+       
+    # TODO mintAddress.
+    split = common.getMintAddresses(r, pid)
+    tids = r.hmget('H_T', [split[0], split[1]])
+    tids = [item.decode() for item in tids] # type: ignore
+    ts = r.json().mget([f'T:{tids[0]}', f'T:{tids[1]}'], ".") # type: ignore
+    
+    data = [] # TODO txId duplication?
+    for row in rows:
+        dex = r.json().get(f'D:{row["outerProgram"]}')
+        data.append({
+            "blockUnixTime": row['blockTime'],
+            "owner": row['signer'],
+            "source": '' if not dex else dex['name'],
+            "txHash": row['txId'],
+            "alias": None,  # TODO
+            "isTradeOnBe": False,
+            "platform": row['outerProgram'],
+            "volumeUSD": 0 if row['price'] == 0 else abs(row['baseAmount'] * row['price']),
+            "from": {
+                "symbol": ts[0]['symbol'] if ts[0]['symbol'] else ts[0]['mint'],
+                "decimals": ts[0]['decimals'],
+                "address": ts[0]['mint'],
+                "amount": abs(row['baseAmount']),
+                "type": row['type'],
+                "typeSwap": row['instructionType'],
+                "uiAmount": abs(row['baseAmount']) / (10.0 ** ts[0]['decimals']),
+                "price": row['price'],
+                "nearestPrice": row['price'], # ?
+                "changeAmount": row['baseAmount'],
+                "uiChangeAmount": row['baseAmount'] / (10.0 ** ts[0]['decimals']),
+                "icon": ts[0]['image']
+            },
+            "to": {
+                "symbol": ts[1]['symbol'] if ts[1]['symbol'] else ts[1]['mint'],
+                "decimals": ts[1]['decimals'],
+                "address": ts[1]['mint'],
+                "amount": abs(row['quoteAmount']),
+                "type": "Buy" if row['type'] == "Sell" else "Sell",
+                "typeSwap": row['instructionType'],
+                "uiAmount": abs(row['quoteAmount']) / (10.0 ** ts[1]['decimals']),
+                "price": row['price'] * abs(row['baseAmount'] / row['quoteAmount']),
+                "nearestPrice": row['price'] * abs(row['baseAmount'] / row['quoteAmount']), # ?
+                "changeAmount": row['quoteAmount'],
+                "uiChangeAmount": row['quoteAmount'] / (10.0 ** ts[1]['decimals']),
+                "icon": ts[1]['image']
+            },
+        })
+    
+    # split = pair.split('/')
+    
+    rlt = {
+        "type": "TXS_DATA_REALTIME",
+        "baseSymbol": ts[0]['symbol'] if ts[0]['symbol'] and ts[0]['symbol'] else split[0],
+        "quoteSymbol": ts[1]['symbol'] if ts[1]['symbol'] and ts[1]['symbol'] else split[1],
+        "data": data
+    }
+    _b()
+    return rlt
+
 
 # {
 #   "type": "PRICE_DATA",

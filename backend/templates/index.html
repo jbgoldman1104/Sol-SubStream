@@ -34,6 +34,7 @@
             >24H</a
           >
         </div>
+        <input id="search" type="text" placeholder="Search..." onChange="updateSearch()"/>
       </div>
       <div class="flex flex-col items-center justify-center px-3">
         <div id="data-table" class="flex flex-col"></div>
@@ -50,15 +51,32 @@
     var limit = 50
     var idle = true
 
+    var search = ''
+
     var socket = io(location.origin + "/socket.io/st", {debug: true});
     // var socket = io(location.origin + "/socket.io/")
     socket.on('connect', () => {
         console.log('Connected to server')
+        // get_pairs()
         subscribe_pairs()
     })
     socket.on('disconnect', () => {
         console.log('Disconnected from server')
     })
+
+    function get_pairs() {
+        socket.emit('data', {
+            type: "GET_PAIRS", 
+            data: {
+                duration, sort, sort_dir, skip, limit
+            }
+        }, (data) => {
+            if (data != undefined && data.data != undefined) {
+                console.log(data.type)
+                setData(data.data)
+            }
+        })
+    }
 
     function subscribe_pairs() {
         socket.emit('subscribe', {
@@ -89,6 +107,11 @@
         console.log(data)
     })
     
+    
+    function updateSearch() {
+        // search = document.
+    }
+
 
     function setDuration(v) {
       duration = v
@@ -127,49 +150,29 @@
         row = data[i].data
         st = row["st" + duration]
         html +=
-          '<div class="data_row flex hover:bg-[#3A3A44] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\'' +
-          row["poolAddress"] +
-          "')\">" +
-          '<div class="data_cell flex items-center border border-solid border-t-[transparent] pl-3 border-[#2E2E33] w-[330px] h-[35px] pr-2 justify-start text-center">' +
-          '<div class="font-bold">' +
-          (row["baseSymbol"] == ""
-            ? formatString(row["baseMint"])
-            : row["baseSymbol"]) +
-          "</div>" +
-          '<div class="mr-3 text-[#888]"> / ' +
-          (row["quoteSymbol"] == ""
-            ? formatString(row["quoteMint"])
-            : row["quoteSymbol"]) +
-          "</div>" +
-          '<div class="flex flex-row items-center justify-center text-[14px] text-[#AAA]">' +
-          '<img src="' +
-          row["baseImage"] +
-          '" style="width:20px margin-right: 5px">' +
-          row["baseName"] +
-          "</div>" +
-          "</div>" +
-          '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[250px] h-[35px] pr-2 justify-end text-right">$ ' +
-          f(row["price"]) +
-          '</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' +
-          f(st["txns"]) +
-          '</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[170px] h-[35px] pr-2 justify-end text-right">$ ' +
-          f(st["volume"]) +
-          '</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' +
-          f(st["makers"]) +
-          '</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center">' +
-          f(Number(st["d_price"]).toFixed(3) * 100) +
-          '%</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' +
-          f(row["liq"]) +
-          '</div>\
-                      <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' +
-          f(row["mcap"]) +
-          "</div>\
-                  </div>"
+          '<div class="data_row flex hover:bg-[#3A3A44] cursor-pointer mx-auto w-full text-[16px] bg-[#1D1D22]" onclick="setPair(\'' + row["poolAddress"] + "')\">" +
+            '<div class="data_cell flex items-center border border-solid border-t-[transparent] pl-3 border-[#2E2E33] w-[330px] h-[35px] pr-2 justify-start text-center">' +
+                '<div class="font-bold">' + (row["baseSymbol"] == "" ? formatString(row["baseMint"]) : row["baseSymbol"]) + "</div>" +
+                '<div class="mr-3 text-[#888]"> / ' + (row["quoteSymbol"] == "" ? formatString(row["quoteMint"]) : row["quoteSymbol"]) + "</div>" +
+                '<div class="flex flex-row items-center justify-center text-[14px] text-[#AAA]">' +
+                    '<img src="' + row["baseImage"] + '" style="width:20px margin-right: 5px">' + row["baseName"] + 
+                '</div>' + 
+                '<a className="ml-2" style="margin-left: 10px" href="https://solscan.io/account/' + row["poolAddress"] +'">' +
+                    '<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" focusable="false" className="chakra-icon custom-13otjrl" ' +
+                    ' height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">' +
+                        '<path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z">' +
+                        '</path>' +
+                    '</svg>' +
+                  '</a>' +
+            "</div>" +
+            '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[250px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["price"]) + '</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["txns"]) + '</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[170px] h-[35px] pr-2 justify-end text-right">$ ' + f(st["volume"]) + '</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["makers"]) + '</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center">' + f(Number(st["d_price"]).toFixed(3) * 100) + '%</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["liq"]) + '</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["mcap"]) + "</div>\
+           </div>"
       }
       element = document.getElementById("data-table")
       if (element != undefined)
