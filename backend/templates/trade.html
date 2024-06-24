@@ -43,7 +43,7 @@
 
         function subscribe_txs() {
             socket.emit('subscribe', {
-                type: "SUBSCRIBE_TXS", 
+                type: "TXS_DATA_HISTORICAL", 
                 data: {
                     pool, filter, skip, limit
                 }

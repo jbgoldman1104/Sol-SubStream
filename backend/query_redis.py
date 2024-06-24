@@ -24,74 +24,17 @@ def convert_to_custom_format(number):
     
     return result
 
-
-# in {
-#     "type": "SUBSCRIBE_PAIRS",
-#     "data": {
-#         "duration": 0,
-#         "skip": 0,
-#         "limit": 100,
-#         "sort": "score",
-#         "sort_dir": "desc",
-#     }
-# }
-
-    
-# {
-#     "type": "SUBSCRIBE_TXS",
-#     "data": {
-#         "queryType": "simple",
-#         "pool": "842NwDnKYcfMRWAYqsD3hoTWXKKMi28gVABtmaupFcnS"
-#         "filter": "volume > 10000"
-#         "skip": 0
-#         "limit": 100
-#     }
-# }
-
-# {
-#     "type": "SUBSCRIBE_PRICE",
-#     "data": {
-#         "queryType": "simple",
-#         "chartType": "1m",
-#         "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm",
-#         "currency": "pair"
-#     }
-# }
-def query_wrap(ns, data):
-    if not data: return {}
-    try:
-        js = json.loads(data) if type(data) == str else data
-    except json.JSONDecodeError as e:
-        js = json.loads(data.replace("\'", "\""))
-    if not js or not js['data']: return {}
+def query_wrap(ns, js):
     param = js['data']
     if js['type'] == 'SUBSCRIBE_PAIRS':
         return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
-    elif js['type'] == 'SUBSCRIBE_TXS':
-        return query_tx(param['pool'], param['filter'], param['skip'], param['limit'])
+    elif js['type'] == 'TXS_DATA_HISTORICAL':
+        return query_tx_historical(param['pool'], param['filter'], param['skip'], param['limit'])
     elif js['type'] == 'PRICE_DATA_HISTORICAL':
         return query_price_historical(param['address'], param['address_type'], param['type'], param['time_from'], param['time_to'])
+    elif js['type'] == 'SUBSCRIBE_PRICE':
+        return query_price_realtime(param['address'], param['address_type'], param['type'])
    
-   
-# {
-#   "type": "PAIRS_DATA",
-#   "data": [{
-#     "base" {
-#       "Name": "Wrapped SOL",
-#       "Symbol": SOL,
-#       "Uri": ,
-#       "Supply": 24.555908821439385,
-#       "Image": "ohlcv",
-#       "Description": "1m",
-#       "Twitter": 1675506120,
-#       "Website: 51.838008518,
-#     }
-
-#     "quoteName": "SOL-USDC",
-#     "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm"
-#   }]
-# }
-
 def get_pairs(pids):
     if not pids: return []
     rlt = r.json().mget([f'P:{t.decode()}' for t in pids], ".") # type: ignore
@@ -199,7 +142,7 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
 #        }
 #    }]
 # }
-def query_tx(address: str = "", filter = "", skip: int = 0, limit: int = 100):
+def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: int = 100):
     _b('query_tx')
     if not address: return []
     pid = r.hget('H_P', address)
@@ -286,8 +229,39 @@ def query_tx(address: str = "", filter = "", skip: int = 0, limit: int = 100):
 #   }
 # }
 def query_price_realtime(address: str = "", address_type: str = "pair", type: str = "15m"):
+    _b('query_price_realtime')
     interval = env.INTERVALS[type]
     if not address or not interval: return []
+
+    pid = r.hget('H_P', address)
+    if not pid: return []
+    pid = pid.decode() # type: ignore
+    
+    o = r.ts().get(f'TS_PO{pid}:{interval}', latest = True)
+    h = r.ts().get(f'TS_PH{pid}:{interval}', latest = True)
+    l = r.ts().get(f'TS_PL{pid}:{interval}', latest = True)
+    c = r.ts().get(f'TS_PC{pid}:{interval}', latest = True)
+    v = r.ts().get(f'TS_V{pid}:{interval}', latest = True)
+    
+    symbols = ['A', 'B'] #common.getSymbols(r, pid)
+    pair_symbol = symbols[0] + '-' + symbols[1]
+    _b()
+    return {
+        "type": "PRICE_DATA",
+        "data": {
+            "unixTime": o[0], 
+            "o": o[1], 
+            "h": h[1], 
+            "l": l[1], 
+            "c": c[1],
+            "v": v[1],
+            "eventType": "ohlcv",
+            "type": type,
+            "symbol": pair_symbol,
+            "address": address
+        }
+    }
+    
     
 def query_price_historical(address: str = "", address_type: str = "pair", type: str = '15m', time_from: int = 0, time_to: int = 0):
     _b('query_price_historical')
@@ -366,10 +340,9 @@ def search_pair(q: str = "", skip: int = 0, limit: int = 10):
     return rlt
 
 if __name__ == "__main__":
-    aa = query_wrap(env.NS_ST, '{"type":"SUBSCRIBE_PAIRS","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}')
-    bb = 1
     # print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
     # print(common.getMintAddresses(r, '1'))
     # print(query_chart('A1BBtTYJd4i3xU8D6Tc2FzU6ZN4oXZWXKZnCxwbHXr8x', 1718629188, 1718727888, 2))
     # print(query_chart('2mCaQrTySFYQtmrKxQxMHBdqHnm2mTx9hMRUbFuNz4Jx', 0, 0, 2))
     # print(query_tx('4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg'))
+    pass

@@ -12,9 +12,16 @@ r = common.connect_redis()
 mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=False)
 
 async def query_send(ns, data):
-    # mgr.send(query_redis.query_wrap(ns, data), room=data, namespace=env.NS_ST)
-    # room = '{"type":"SUBSCRIBE_RANK","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}'
-    await mgr.emit('message', query_redis.query_wrap('', data), room=data, namespace=ns)
+    try:
+        js = json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        js = json.loads(data.replace("\'", "\""))
+    if not js or not js['data']: return {}
+
+    if js['type'] == 'SUBSCRIBE_PRICE':
+        await mgr.emit('PRICE_DATA', query_redis.query_wrap('', js), room=data, namespace=ns)
+    else:
+        await mgr.emit('message', query_redis.query_wrap('', js), room=data, namespace=ns)
 
     
 async def send_data_thread():
@@ -28,27 +35,12 @@ async def send_data_thread():
         if now - prev < env.UPDATE_INTERVAL:
             await asyncio.sleep((env.UPDATE_INTERVAL + prev - now) / 1000)
         prev = common.now()
-        # await asyncio.create_task(query_send('ns', 'room'))
-        # continue
-        # room = '{"type":"SUBSCRIBE_PAIRS","data":{"duration":0,"sort":"score","sort_dir":"desc","skip":0,"limit":50}}'
-        # mgr.emit('message', query_redis.query_wrap('', room), room='123123123', namespace=env.NS_ST)
-        # rooms1 = mgr.get_rooms('*', env.NS_ST)
-        # if not mgr.rooms: continue
         
         tasks = []
         for ns in env.NSS:
-        #     rooms = mgr.rooms[ns]
-        #     if rooms:
-        #         rooms = rooms.keys()
-        #         for room in rooms:
-        #             if not room: continue
-        #             if not room.startswith("{"):
-                        # tasks.append(asyncio.create_task(query_send(ns, room)))
-
             rs = r.zrevrange(f'SS_RO{ns}', 0, -1, withscores=True)
-            print(rs)
+            # print(rs)
             rooms = set()
-
             for room in rs:
                 if room and room[1] and room[1] > 0:
                     rooms.add(room[0].decode())
@@ -61,7 +53,6 @@ async def send_data_thread():
 
 if __name__ == "__main__":
     asyncio.run(send_data_thread())
-    # await asyncio.create_task()
     # print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
 
 
