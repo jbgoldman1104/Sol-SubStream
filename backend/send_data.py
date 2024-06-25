@@ -7,14 +7,10 @@ import socketio
 import query_redis
 from benchmark import _b
 
-r = common.connect_redis()
 mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=True)
 
 async def query_send(ns, data):
-    try:
-        js = json.loads(data) if type(data) == str else data
-    except json.JSONDecodeError as e:
-        js = json.loads(data.replace("\'", "\""))
+    js = common.js(data)
     if not js or not js['data']: return {}
 
     if js['type'] == 'SUBSCRIBE_PRICE':
@@ -24,10 +20,12 @@ async def query_send(ns, data):
 
     
 async def send_data_thread():
-    prev = 0
+    print('-- send_data process started. --')
+    r = common.connect_redis()
     while True:
+        prev = common.now()
         r.ltrim('L_UPDATED', 0, 0)
-        cmd = r.brpop('L_UPDATED', timeout=env.UPDATE_INTERVAL*5)[1].decode() # TODO timeout
+        cmd = r.brpop('L_UPDATED', timeout=0)[1].decode() # TODO timeout
         if cmd == 'QUIT': break
         
         # new_txs = r.xread( streams = {"NEW_TXS": 0}, block = 10000000 )
@@ -51,10 +49,14 @@ async def send_data_thread():
         print(f'send: {now - prev}: {(env.UPDATE_INTERVAL + prev - now)}')
         if now - prev < env.UPDATE_INTERVAL:
             await asyncio.sleep((env.UPDATE_INTERVAL + prev - now) / 1000)
-        prev = common.now()
 
 if __name__ == "__main__":
     asyncio.run(send_data_thread())
+    # i = 0
+    # while True:
+    #     # asyncio.sleep(1000)
+    #     print(f"Running{i}")
+    #     i += 1
     # print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
 
 

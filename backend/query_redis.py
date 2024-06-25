@@ -30,6 +30,8 @@ def query_wrap(ns, js, payload = None):
         return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
     elif js['type'] == 'SUBSCRIBE_PAIRS':
         return query_st(param['duration'], param['skip'], param['limit'], param['sort'], param['sort_dir'])
+    elif js['type'] == 'SUBSCRIBE_PAIRS_SEARCH':
+        return search_pair(param['search'], param['skip'], param['limit'])
     elif js['type'] == 'TXS_DATA_HISTORICAL':
         return query_tx_historical(param['pool'], param['filter'], param['skip'], param['limit'])
     elif js['type'] == 'TXS_DATA_REALTIME':
@@ -366,7 +368,7 @@ def query_price_historical(address: str = "", address_type: str = "pair", type: 
         rows4 = r.ts().range(f'TS_PC{pid}:{interval}', time_from, time_to)
         rows5 = r.ts().range(f'TS_V{pid}:{interval}', time_from, time_to)
         
-    symbols = ['A', 'B'] #common.getSymbols(r, pid)
+    symbols = common.getSymbols(r, pid)
     pair_symbol = symbols[0] + '-' + symbols[1]
     data = []
     for i in range(len(rows1)):

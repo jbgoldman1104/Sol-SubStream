@@ -18,10 +18,7 @@ mgr = socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0',
     # pass
 async def query_send(ns, data, payload):
     print(f'input_redis: query_send : {data}')
-    try:
-        js = json.loads(data) if type(data) == str else data
-    except json.JSONDecodeError as e:
-        js = json.loads(data.replace("\'", "\""))
+    js = common.js(data)
     if not js or not js['data']: return {}
 
     if js['type'] == 'TXS_DATA_REALTIME':
@@ -30,6 +27,8 @@ async def query_send(ns, data, payload):
             await mgr.emit('TX_DATA', rlt, room=data, namespace=ns)
         
 async def update_thread():
+        print('-- input_redis process started. --')
+    
     # try:
         r = common.connect_redis()
         conn = common.connect_db()
@@ -81,7 +80,7 @@ async def update_thread():
             
             # assert len(new_txs) > 0
             for tx in new_txs:
-                if common.isUSD(tx[2]['quoteMint']) and common.isSol(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0:
+                if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
                     solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
                 tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint']) # type: ignore
                 blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
@@ -192,6 +191,14 @@ async def update_thread():
                 p_replace[p]['price'] = tx[2]['price']
                 p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_replace[p]['mcap'] = 1e9 * p_replace[p]['price']  # TODO with T:*
+                
+                if not p_replace[p]['dex']:
+                    p_replace[p]['outerProgram'] = tx[2]['outerProgram']
+                    dex = r.json().get(f'D:{tx[2]["outerProgram"]}')
+                    if dex:
+                        p_replace[p]['dex'] = dex['name']
+                        p_replace[p]['dexImage'] = dex['image']
+
 
                 for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['txns'] += 1

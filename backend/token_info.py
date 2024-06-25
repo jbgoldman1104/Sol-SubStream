@@ -117,17 +117,19 @@ async def update_nft(id, mint):
     if meta:
         if meta[15] and meta[15].startsWith("data:image/"):
             meta[15] = None     # TODO make thumbnail image to server
-        print(f'{meta[0]} - {meta[3]} : {meta[4]} => {meta[15]}') # type: ignore
+        # print(f'{meta[0]} - {meta[3]} : {meta[4]} => {meta[15]}') # type: ignore
         r.json().mset([common.toT(meta)])
         # write to file
         common.writeT(meta)
     else:
-        print(f"update_nft error: {mint}")
+        print(f"update_nft error: {id}: {mint}")
         common.writeFailedT(id, mint)
     # r.lpop('L_TOKEN_REQUEST')
 
 
 async def token_thread():
+    print('-- token_info process started. --')
+    
     # r.xtrim("TOKEN_STREAM", maxlen = 0)
     
     session = aiohttp.ClientSession()
@@ -151,7 +153,7 @@ async def token_thread():
         # await temp
         remain = r.llen('L_TOKENS')
         num_tasks = len(tasks)
-        print(f'{remain}___{num_tasks}')
+        # print(f'{remain}___{num_tasks}')
         while len(tasks) >= env.NUM_REQUESTS:
             await tasks[0]
             tasks.pop(0)

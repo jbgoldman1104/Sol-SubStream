@@ -8,6 +8,12 @@
     <script src="/common.js"></script>
     <script src="/charting_library/charting_library.js"></script>
     <script src="/socketio/socket.io.min.js"></script>
+    <style>
+        .data_row {
+            -webkit-transition: all .2s ease-out;
+            transition: all .2s ease-out;
+        }
+    </style>
   </head>
   <body class="flex items-center justify-center w-screen h-screen bg-[black]">
     <div class="text-#2E2E33 bg-[#0d0d0d] w-full h-full">
@@ -46,6 +52,7 @@
         var idle = true;
 
         var txsData = []
+        var chart;
 
         var socket = io(location.origin + "/socket.io/tx", {debug: true});
         // var socket = io(location.origin + "/socket.io/")
@@ -149,8 +156,12 @@
             }
             var prev_html = document.getElementById("data_list").innerHTML
             var new_html = is_front ? html + prev_html : prev_html + html
-            document.getElementById("data_list").innerHTML = new_html;
+            list = document.getElementById("data_list")
+            list.innerHTML = new_html;
             skip += data['data'].length
+
+            while(list.children.length > 100)
+                list.children[100].remove()
         }
         function fetchData() {
             document.getElementById("data_list").innerHTML = ""
@@ -192,7 +203,6 @@
 
     <script type="text/javascript">
 
-        var chart;
         var idle = false;
 
         var interval = 1;

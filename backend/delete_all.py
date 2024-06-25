@@ -13,6 +13,8 @@ def dropTable(cur, name: str):
         cur.execute(f"DROP TABLE \"{name}\"")
 
 def delete_all():
+    print('-- delete_all process started. --')
+    
     r = common.connect_redis()
     if env.USE_PG:
         conn = common.connect_db()

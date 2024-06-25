@@ -41,41 +41,49 @@ def toP(row: tuple):
                 "st3": {"r": row[32], "score": row[33], "txns": row[34], "volume": row[35], "makers": row[36], "d_price": row[37], "prevVolume": row[38], "prevAmount": row[39], "prevPrice": row[40]},
 
                 "baseMint": row[41], "quoteMint": row[42], "poolAddress": row[43], "created": row[44], 
-                "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": ""
+                "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": ""
                 })
 
 def getPSymbols(r, p):
-    if not p[2]["baseName"]:
-        tid = mintToId(p[2]["baseMint"])
+    if not p["baseName"]:
+        tid = mintToId(None, r, p["baseMint"])
         if tid:
-            p[2]["baseSymbol"] = r.get(f'T:{tid}')['symbol']
-            p[2]["baseName"] = r.get(f'T:{tid}')['name']
+            p["baseSymbol"] = r.json().get(f'T:{tid}')['symbol']
+            p["baseName"] = r.json().get(f'T:{tid}')['name']
 
-    if not p[2]["quoteName"]:
-        tid = mintToId(p[2]["quoteMint"])
+    if not p["quoteName"]:
+        tid = mintToId(None, r, p["quoteMint"])
         if tid:
-            p[2]["quoteSymbol"] = r.get(f'T:{tid}')['symbol']
-            p[2]["quoteName"] = r.get(f'T:{tid}')['name']
+            p["quoteSymbol"] = r.json().get(f'T:{tid}')['symbol']
+            p["quoteName"] = r.json().get(f'T:{tid}')['name']
     
-    return [p[2]["baseSymbol"] if p[2]["baseSymbol"] else p[2]["baseMint"],
-            p[2]["quoteSymbol"] if p[2]["quoteSymbol"] else p[2]["quoteMint"]]
+    return [p["baseSymbol"] if p["baseSymbol"] else p["baseMint"],
+            p["quoteSymbol"] if p["quoteSymbol"] else p["quoteMint"]]
 
+def order(mint: str):
+    if isUSDT(mint): return 1
+    elif isUSDC(mint): return 2
+    elif isSOL(mint): return 10
+    else: return 100
+
+    
 
 def toTx(cur, r, row: tuple):
     if env.USE_PG:
         assert len(row) == 16
+        swap = order(row[7]) < order(row[8])
+        baseMint = row[8] if swap else row[7]
+        quoteMint = row[7] if swap else row[8]
+        baseAmount = row[10] if swap else row[9]
+        quoteAmount = row[9] if swap else row[10]
+
         return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2], "blockSlot": row[3],
-                                      "txId": row[4], "signer": row[5], "poolAddress": row[6], "baseMint": row[7], "quoteMint": row[8],
-                                      "baseAmount": row[9], "quoteAmount": row[10], "instructionType": row[11],
+                                      "txId": row[4], "signer": row[5], "poolAddress": row[6], "baseMint": baseMint, "quoteMint": quoteMint,
+                                      "baseAmount": baseAmount, "quoteAmount": quoteAmount, "instructionType": row[11],
                                       "outerProgram": row[12], "innerProgram": row[13], "baseReserve": row[14], "quoteReserve": row[15], 
                                       # new fields
-                                      "pid": poolToId(cur, r, row[6], f'{row[7]}/{row[8]}'), "type": "Buy" if row[9] > 0 else "Sell", "price": 0,
-                                      
+                                      "pid": poolToId(cur, r, row[6], f'{baseMint}/{quoteMint}'), "type": "Sell" if baseAmount > 0 else "Buy", "price": 0,
                                       })
-    else:
-        assert len(row) == 8
-        return (f'TX:{row[0]}', ".", {"id": row[0], "baseMint": row[1], "quoteMint": row[2], "type": row[3], "baseAmount": row[4], "quoteAmount": row[5],
-                                        "signer": row[6], "blockTime": row[7]})
 
 def rp():
     return f'T{rdi(0, env.NTEST-1)}'
@@ -139,7 +147,7 @@ def writeFailedT(id, mint):
     # fileFailedT.close()
 
 def toD(row: tuple):
-    return (f"D:{row[0]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": row[3]})
+    return (f"D:{row[1]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": f'/images/dex/{row[3] if row[3] else "solana/solana.svg"}'})
 
 def toT(row: tuple):
     return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
@@ -236,7 +244,7 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         pid = int(pid.decode())
     return pid
 
-def isSol(mint: str):
+def isSOL(mint: str):
     return mint == 'So11111111111111111111111111111111111111112'
 
 def isUSD(mint: str):
@@ -260,15 +268,21 @@ def getPrice(solPrice, baseAmount, quoteAmount, baseMint, quoteMint):
             price = quoteAmount / baseAmount * (1 if isUSDT(quoteMint) else 0.999632)
             # if isSol(baseMint):
             #     solPrice = price
-        elif isSol(baseMint):
+        elif isSOL(baseMint):
             price = solPrice
-        elif isSol(quoteMint):
+        elif isSOL(quoteMint):
             price = solPrice * quoteAmount / baseAmount
         else:
             #TODO
             pass
     return abs(price)
 # __app__ = [connect_redis, connect_db]
+
+def js(data):
+    try:
+        return json.loads(data) if type(data) == str else data
+    except json.JSONDecodeError as e:
+        return json.loads(data.replace("\'", "\""))
 
 
 if __name__ == "__main__":

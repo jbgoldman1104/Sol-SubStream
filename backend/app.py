@@ -32,7 +32,6 @@ from fastapi_socketio import SocketManager
 
 r = common.connect_redis()
 
-
 app = FastAPI(title='Solana DexViewer')
 app.add_middleware( CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],)
 
@@ -45,33 +44,32 @@ app.mount("/socket.io", sio_app)
 
 def enter(sid, param, ns):
     if not param: return
-    room = json.dumps(param)
+    room = param if type(param) == str else json.dumps(param)
     if param["type"] == "SUBSCRIBE_PAIRS":
         leave(sid, None, ns)
     # elif param["type"] == "SUBSCRIBE_TXS":
     #     leave(sid, )
     k = f'S_SR{sid}'
-    if r.sismember(k, room): return
+    # if r.sismember(k, room): return
+    if room in mgr.get_rooms(sid, ns): return
     r.sadd(k, sid)
     sio.enter_room(sid, room, ns)
     r.zincrby(f'SS_RO{ns}', 1, room)
     print(f'-- {sio} enter {ns} : {room} --')
         
 def leave(sid, param, ns):
-    room = json.dumps(param)
-
     k = f'S_SR{sid}'
-    if not room:
+    if not param:
         for prev_room in r.smembers(k):
             sio.leave_room(sid, prev_room, ns)
             r.zincrby(f'SS_RO{ns}', -1, prev_room)
             print(f'-- {sio} leave {ns} : {prev_room} --')
     else:
-        room = json.dumps(room)
-        if r.sismember(k, room):
-            sio.leave_room(sid, room, ns)
-            r.zincrby(f'SS_RO{ns}', -1, room)
-            print(f'-- {sio} leave {ns} : {room} --')
+        room = param if type(param) == str else json.dumps(param)
+        # if r.sismember(k, room):
+        sio.leave_room(sid, room, ns)
+        r.zincrby(f'SS_RO{ns}', -1, room)
+        print(f'-- {sio} leave {ns} : {room} --')
 
 
 @sio.event(namespace=env.NS_ST)
@@ -82,13 +80,18 @@ async def connect(sid, environ):
 @sio.event(namespace=env.NS_ST)
 async def disconnect(sid):
     print(f'--- Disconnected ST ---: {sid}')
-    for ns in env.NSS:
-        leave(sid, None, ns)
+    # for ns in env.NSS:
+    #     leave(sid, None, ns)
+    for room in mgr.get_rooms(sid, env.NS_ST):
+        leave(sid, room, env.NS_ST)
             
 @sio.event(namespace=env.NS_ST)
 async def subscribe(sid, data):
     print(f'--- Subscribe ST ---: {sid} : {data}')
     # leave(sid, None, env.NS_ST)
+    for room in mgr.get_rooms(sid, env.NS_ST):
+        if room != None and room.startswith("{"):
+            leave(sid, room, env.NS_ST)
     enter(sid, data, env.NS_ST)
     
 @sio.event(namespace=env.NS_ST)
@@ -99,10 +102,7 @@ async def unsubscribe(sid, data):
 @sio.event(namespace=env.NS_ST)
 async def data(sid, data):
     print(f'--- Data ST ---: {sid} : {data}')
-    try:
-        js = json.loads(data) if type(data) == str else data
-    except json.JSONDecodeError as e:
-        js = json.loads(data.replace("\'", "\""))
+    js = common.js(data)
     if not js or not js['data']: return {}
     return query_redis.query_wrap('', js)
 
@@ -130,10 +130,7 @@ async def unsubscribe(sid, data):
 @sio.event(namespace=env.NS_TX)
 async def data(sid, data):
     print(f'--- Data TX ---: {sid} : {data}')
-    try:
-        js = json.loads(data) if type(data) == str else data
-    except json.JSONDecodeError as e:
-        js = json.loads(data.replace("\'", "\""))
+    js = common.js(data)
     if not js or not js['data']: return {}
     return query_redis.query_wrap('', js)
     
@@ -179,4 +176,4 @@ app.mount("/", StaticFiles(directory=str(Path(BASE_DIR, 'static'))), name="stati
 import uvicorn
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
-    # await send_proc
+    print('app process started.')

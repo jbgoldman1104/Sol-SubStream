@@ -34,6 +34,8 @@ from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 #         yield row
 
 def importD(r, filename: str):
+    print('-- init process started. --')
+    
     if not os.path.exists(filename):
         open(filename, 'x')
     file = open(filename, 'r+')
@@ -136,7 +138,7 @@ def init_redis():
         conn.commit()
         
     # --- Import D:, H_D ---
-    importD(r, env.FILENAME_T)
+    importD(r, env.FILENAME_D)
 
     # --- Import T:, H_T ---
     importT(r, env.FILENAME_T)
