@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socketio/socket.io.min.js"></script>
     <script src="/common.js"></script>
+    <style>
+        body {
+            font-family: "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol"
+        }
+    </style>
   </head>
   <body class="flex items-center justify-center w-screen h-screen bg-[black]">
     <div class="text-white bg-[#0d0d0d] w-full h-full">
@@ -54,30 +59,34 @@
             data: {
                 duration, sort, sort_dir, skip, limit
             }
-        }, (data) => {
-            if (data != undefined && data.data != undefined) {
-                console.log(data.type)
-                setData(data.data)
-            }
-        })
+        }, pairs_callback)
+    }
+
+    function pairs_callback(data) {
+        if (data != undefined && data.data != undefined) {
+            console.log(data.type)
+            setData(data.data)
+        } else {
+            console.log(data)
+        }
     }
 
     function subscribe_pairs() {
-        get_pairs()
+        // get_pairs()
         if (search != ''){
             socket.emit('subscribe', {
                 type: "SUBSCRIBE_PAIRS_SEARCH", 
                 data: {
                     search, skip, limit
                 }
-            })
+            }, pairs_callback)
         } else {
             socket.emit('subscribe', {
                 type: "SUBSCRIBE_PAIRS", 
                 data: {
                     duration, sort, sort_dir, skip, limit
                 }
-            })
+            }, pairs_callback)
         }
     }
 
@@ -93,7 +102,7 @@
     socket.on('message', (data) => {
         console.log(data.type)
         if (data.type == 'PAIRS_DATA') {
-            setData(data.data)
+            pairs_callback(data)
         }
     })
 
@@ -165,7 +174,7 @@
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["txns"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[170px] h-[35px] pr-2 justify-end text-right">$ ' + f(st["volume"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["makers"]) + '</div>\
-            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center">' + f(Number(st["d_price"]).toFixed(3) * 100) + '%</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center">' + formatDPrice(st["d_price"]) + '%</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["liq"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["mcap"]) + "</div>\
            </div>"

@@ -93,6 +93,9 @@ async def subscribe(sid, data):
         if room != None and room.startswith("{"):
             leave(sid, room, env.NS_ST)
     enter(sid, data, env.NS_ST)
+    js = common.js(data)
+    if not js or not js['data']: return {}
+    return query_redis.query_wrap('', js)
     
 @sio.event(namespace=env.NS_ST)
 async def unsubscribe(sid, data):
@@ -121,6 +124,9 @@ async def disconnect(sid):
 async def subscribe(sid, data):
     print(f'--- Subscribe TX ---: {sid} : {data}')
     enter(sid, data, env.NS_TX)
+    js = common.js(data)
+    if not js or not js['data']: return {}
+    return query_redis.query_wrap('', js)
     
 @sio.event(namespace=env.NS_TX)
 async def unsubscribe(sid, data):

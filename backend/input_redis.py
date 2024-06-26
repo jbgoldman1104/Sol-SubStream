@@ -37,7 +37,6 @@ async def update_thread():
         # --- SYNC WITH INIT ---
         # r.xread( streams = {"INIT_COMPLETE": 0}, block = 60000 )
         # r.xtrim("INIT_COMPLETE", maxlen = 0)
-        path = "."
         
         # # for Sync with R & PG purpose
         # rlt = r.hmget()
@@ -57,8 +56,8 @@ async def update_thread():
             prev = now if not prev_time else int(prev_time[0][1]) # type: ignore
             # delta = now - prev
 
-            cache_set = r.smembers('S_C')
-            # --- add new block and txs ---
+            # cache_set = r.smembers('S_C')
+            # --- add new block and txs --- Checked
             new_txs = []
             blk_value = ''
             if env.USE_PG:
@@ -68,46 +67,52 @@ async def update_thread():
                 cur.execute("SELECT * FROM trade WHERE id > %s", [read_tx_id])
                 rows = cur.fetchmany(env.DB_READ_SIZE)
                 t_end1 = datetime.datetime.now()
+                
                 new_txs = [common.toTx(cur, r, row) for row in rows]
                 if len(new_txs) == 0: continue
                 # r.json().mset(new_txs) # type: ignore
                 read_tx_id = new_txs[len(new_txs)-1][2]["id"]
+                
                 t_start_ = datetime.datetime.now()
                 common.setSyncValue(cur, "read_tx_id", read_tx_id)
                 t_end_ = datetime.datetime.now()
                 t_end1 += t_end_ - t_start_
                 new_tx_count = len(rows)
             
+            # --- Block's TX ids --- Checked
             # assert len(new_txs) > 0
             for tx in new_txs:
-                if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
-                    solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
-                tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint']) # type: ignore
-                blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
+                if tx[2]['instructionType'] != "Liquidity":
+                    if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
+                        solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
+                    tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
+                    blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
+
             # TODO lifetime, Only Hot Tx
-            # r.json().mset(new_txs) # type: ignore
+            # TODO Sync with PG
+            if new_txs:
+                r.json().mset(new_txs) # type: ignore
+            r.zadd('SS_BLK', {blk_value: now})
+
+            # --- Filter Swap Transactions ---
             new_txs_sel = []
             for tx in new_txs:
                 # if r.sismember('S_C', common.poolToId(cur, r, tx[2]['poolAddress'], f'{tx[2]["baseMint"]}/{tx[2]["quoteMint"]}')):
+                if tx[2]['instructionType'] != 'Liquidity':
                     new_txs_sel.append(tx)
-            
-            
-            # -- TS_i --
-            r.ts().madd([(f'TS_P{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs])
-            r.ts().madd([(f'TS_V{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs])
 
-            if new_txs_sel:
-                r.json().mset(new_txs_sel) # type: ignore
-            r.zadd('SS_BLK', {blk_value: now})
-            # TODO Sync with PG
+            # --- TS_i ---
+            r.ts().madd([(f'TS_P{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs_sel])
+            r.ts().madd([(f'TS_V{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
+
             
             t_start2 = datetime.datetime.now()
-            # --- Update Score ---
+            # ----- Update Score -----
             prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(env.NUM_DURATIONS)]
             prev_prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i] - env.PREV_SUM_LENGTH, now - env.DURATION[i] - env.PREV_SUM_LENGTH) for i in range(env.NUM_DURATIONS)]
             t_end2 = datetime.datetime.now()
             
-            # Add tokens for old txs
+            # --- Add tokens for old txs ---
             old_txs_4 = []
             old_txs_p_ids_4 = []
             for i in range(env.NUM_DURATIONS):
@@ -187,6 +192,9 @@ async def update_thread():
             # apply for new txs (TODO: Score, Volume, Makers Algorithm)
             for tx in new_txs:
                 p = f'P:{tx[2]["pid"]}' # type: ignore
+                if tx[2]['instructionType'] == 'Liquidity':
+                    p_replace[p]['price'] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
+                    continue
                 
                 p_replace[p]['price'] = tx[2]['price']
                 p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
@@ -198,7 +206,6 @@ async def update_thread():
                     if dex:
                         p_replace[p]['dex'] = dex['name']
                         p_replace[p]['dexImage'] = dex['image']
-
 
                 for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['txns'] += 1
@@ -300,7 +307,7 @@ async def update_thread():
                 await asyncio.gather(*tasks)
             
             t_end = datetime.datetime.now()
-            print(f'--- Input Redis ---({rep}): blockId: {new_txs[0][2]["blockSlot"]} =>\
+            print(f'--- Input Redis ---({rep}): blockId: {new_txs[len(new_txs) - 1][2]["blockSlot"]} =>\
             {(t_end - t_start).total_seconds()} s\
             (DB: {(t_end1 - t_start1).total_seconds()} s\
             TS: {(t_end2 - t_start2).total_seconds()} s\

@@ -9,6 +9,9 @@
     <script src="/charting_library/charting_library.js"></script>
     <script src="/socketio/socket.io.min.js"></script>
     <style>
+        body {
+            font-family: "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol"
+        }
         .data_row {
             -webkit-transition: all .2s ease-out;
             transition: all .2s ease-out;
@@ -29,10 +32,10 @@
             <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold text-[white]">
                 <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>
                 <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');" id="baseSymbol"></a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');" id="quoteSymbol"></a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[250px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');" id="baseSymbol"></a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');" id="quoteSymbol"></a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>
                 <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>
             </div>
             <div id="data_list">
@@ -124,17 +127,17 @@
                             formatDate(Number(row["blockUnixTime"]) * 1000) +
                         '</div>\
                         <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[120px] h-[35px] pr-2 justify-center ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + row["from"]["type"] + '</div>\
-                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + f(row["volumeUSD"]) +'</div>\
-                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + f(row["from"]["amount"]) +'</div>\
-                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-end ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-center">' + f(row["to"]["amount"]) + '</div>\
-                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[250px] h-[35px] pr-2 justify-end ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">$ ' + f(row["from"]["price"]) + '</div>\
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + row["from"]["type"] + '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[160px] h-[35px] pr-2 justify-end ' +
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + f(row["volumeUSD"]) +'</div>\
                         <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
-                            (row["from"]["type"] == "Buy" ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + formatString(row["owner"]) + 
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + f(row["from"]["amount"]) +'</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-center">' + f(row["to"]["amount"]) + '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[160px] h-[35px] pr-2 justify-end ' +
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">$ ' + ((row["from"]['type'] == "Buy" || row["from"]['type'] == "Sell") ? f(row["from"]["price"]) : '-') + '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
+                            ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right"> ' + formatString(row["owner"]) + 
                             '<a className="ml-2" style="margin-left: 10px" href="https://solscan.io/account/'+ row['owner'] + '\"}>' +
                                 '<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" focusable="false" className="chakra-icon custom-13otjrl" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">' +
                                     '<path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z">' +

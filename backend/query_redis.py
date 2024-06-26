@@ -43,7 +43,7 @@ def query_wrap(ns, js, payload = None):
     
    
 def get_pairs(pids):
-    if not pids: return []
+    if not pids: return { 'type':'PAIRS_DATA', 'data': [] }
     rlt = r.json().mget([f'P:{t.decode()}' for t in pids], ".") # type: ignore
     tids = []
     for p in rlt:
@@ -197,7 +197,7 @@ def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: in
                 "decimals": ts[1]['decimals'],
                 "address": ts[1]['mint'],
                 "amount": abs(row['quoteAmount']),
-                "type": "Buy" if row['type'] == "Sell" else "Sell",
+                "type": row['type'], #"Buy" if row['type'] == "Sell" else "Sell",
                 "typeSwap": row['instructionType'],
                 "uiAmount": abs(row['quoteAmount']) / (10.0 ** ts[1]['decimals']),
                 "price": row['price'] * abs(row['baseAmount'] / row['quoteAmount']),
@@ -266,7 +266,7 @@ def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, li
                 "decimals": ts[1]['decimals'],
                 "address": ts[1]['mint'],
                 "amount": abs(row['quoteAmount']),
-                "type": "Buy" if row['type'] == "Sell" else "Sell",
+                "type": row['type'], #"Buy" if row['type'] == "Sell" else "Sell",
                 "typeSwap": row['instructionType'],
                 "uiAmount": abs(row['quoteAmount']) / (10.0 ** ts[1]['decimals']),
                 "price": row['price'] * abs(row['baseAmount'] / row['quoteAmount']),
