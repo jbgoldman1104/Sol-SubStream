@@ -20,6 +20,7 @@ DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
 UPDATE_INTERVAL = 2000
 # DURATION = (1 * 6, 2 * 6, 3 * 6, 4 * 6)
 DURATION = (5 * 60, 60 * 60, 360 * 60, 24 * 60 * 60)
+DURATION_TS = (2, 4, 6, 7)
 PREV_SUM_LENGTH = (60)
 CACHE_COUNT = 500
 NTEST = 20
@@ -34,25 +35,25 @@ FILENAME_D = '/root/torres/Sol-SubStream/fileD.json'
 FILENAME_T = '/root/torres/Sol-SubStream/fileT.json'
 FILENAME_FailedT = '/root/torres/Sol-SubStream/fileFailedT.json'
 
-
-DAY = 86400
-DAY5 = 5 * DAY
-MONTH = 30 * DAY
-MONTH3 = 3 * MONTH
-MONTH6 = 6 * MONTH
-YEAR5 = 60 * MONTH
-
-SEC = 1          # original or sec(1d)
+SEC = 1             # original or sec(1d)
 MIN = 60 * SEC      # min(1d)
 MIN5 = 5 * MIN      # 5 min(5d)
 MIN30 = 30 * MIN    # 30 min(1m)
 HOUR = 60 * MIN     # 1h(3m)
-HOUR2 = 120 * MIN   # 2h(6m)
+HOUR2 = 2 * HOUR    # 2h(6m)
+HOUR6 = 6 * HOUR    # 6h(6m)
+
+DAY = 24 * HOUR     # 1d(1y)
+DAY5 = 5 * DAY
 WEEK = 7 * DAY      # 1w(5y)
+MONTH = 30 * DAY
+MONTH3 = 3 * MONTH
+MONTH6 = 6 * MONTH
+YEAR = 12 * MONTH
+YEAR5 = 60 * MONTH
 
-
-RP = [DAY, DAY, DAY5, MONTH, MONTH3, MONTH6, YEAR5]
-BD = [SEC, MIN, MIN5, MIN30, HOUR, HOUR2, WEEK]
+RP = [DAY, DAY, DAY5, MONTH, MONTH3, MONTH6, MONTH6, YEAR, YEAR5]
+BD = [SEC, MIN, MIN5, MIN30, HOUR, HOUR2, HOUR6, DAY, WEEK]
 NUM_INTERVALS = len(RP)
 INTERVALS = {
     '1s': 0,
@@ -61,7 +62,9 @@ INTERVALS = {
     '30m': 3,
     '1h': 4,
     '2h': 5,
-    '1w': 6,
+    '6h': 6,
+    '1d': 7,
+    '1w': 8,
 }
 
 

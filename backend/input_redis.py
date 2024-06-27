@@ -77,7 +77,6 @@ async def update_thread():
                 common.setSyncValue(cur, "read_tx_id", read_tx_id)
                 t_end_ = datetime.datetime.now()
                 t_end1 += t_end_ - t_start_
-                new_tx_count = len(rows)
             
             # --- Block's TX ids --- Checked
             # assert len(new_txs) > 0
@@ -102,82 +101,17 @@ async def update_thread():
                     new_txs_sel.append(tx)
 
             # --- TS_i ---
-            r.ts().madd([(f'TS_P{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs_sel])
-            r.ts().madd([(f'TS_V{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
-
-            
-            t_start2 = datetime.datetime.now()
-            # ----- Update Score -----
-            prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(env.NUM_DURATIONS)]
-            prev_prev_blocks = [r.zrangebyscore('SS_BLK', prev - env.DURATION[i] - env.PREV_SUM_LENGTH, now - env.DURATION[i] - env.PREV_SUM_LENGTH) for i in range(env.NUM_DURATIONS)]
-            t_end2 = datetime.datetime.now()
-            
-            # --- Add tokens for old txs ---
-            old_txs_4 = []
-            old_txs_p_ids_4 = []
-            for i in range(env.NUM_DURATIONS):
-                if not prev_blocks[i]:
-                    old_txs_4.append([])
-                    old_txs_p_ids_4.append([])
-                    continue
-                old_txs_ids = []
-                for old_block in prev_blocks[i]: # type: ignore
-                    if not old_block: continue
-                    for old_tx in old_block.decode().split(','):
-                        if not old_tx: continue
-                        old_txs_ids.append(old_tx)
-                txs_to_load = [f'TX:{id}' for id in old_txs_ids]
-                if txs_to_load:
-                    old_txs_4.append(r.json().mget(txs_to_load, "."))
-                    newlist = []
-                    for tx in old_txs_4[i]:
-                        if tx:
-                            newlist.append(tx['pid'])
-                    old_txs_p_ids_4.append(newlist)
-
-            # Add tokens for prev old txs
-            prev_old_txs_4 = []
-            prev_old_txs_p_ids_4 = []
-            for i in range(env.NUM_DURATIONS):
-                if not prev_prev_blocks[i]:
-                    prev_old_txs_4.append([])
-                    prev_old_txs_p_ids_4.append([])
-                    continue
-                old_txs_ids = []
-                for old_block in prev_prev_blocks[i]: # type: ignore
-                    if not old_block: continue
-                    for old_tx in old_block.decode().split(','):
-                        if not old_tx: continue
-                        old_txs_ids.append(old_tx)
-                txs_to_load = [f'TX:{id}' for id in old_txs_ids]
-                if txs_to_load:
-                    prev_old_txs_4.append(r.json().mget(txs_to_load, "."))
-                    newlist = []
-                    for tx in prev_old_txs_4[i]:
-                        if tx:
-                            newlist.append(tx['pid'])
-                    prev_old_txs_p_ids_4.append(newlist)
-
+            r.ts().madd([(f'TS_P:{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs_sel])
+            r.ts().madd([(f'TS_V:{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
 
             # --- Recent and Old Read Count ---
             new_r_pids = r.zrangebyscore('SS_PR', prev, now) # for +
-            old_rs_pids_4 = [r.zrangebyscore('SS_PR', prev - env.DURATION[i], now - env.DURATION[i]) for i in range(env.NUM_DURATIONS)] # type: ignore
-            
             new_r_pids = [item.decode() for item in new_r_pids] # type: ignore
-            for i in range(env.NUM_DURATIONS):
-                old_rs_pids_4[i] = [item.decode() for item in old_rs_pids_4[i]] # type: ignore
             
             # --- Make New Token Values ---
             replace_pids = [f'{tx[2]["pid"]}' for tx in new_txs] # names to load and replace **new token id
+            new_txs_pids = list(set(replace_pids))
             replace_pids.extend(new_r_pids) # type: ignore
-            for i in range(env.NUM_DURATIONS):
-                if old_rs_pids_4[i]:
-                    replace_pids.extend(old_rs_pids_4[i]) # type: ignore
-                if old_txs_p_ids_4[i]:
-                    replace_pids.extend(old_txs_p_ids_4[i])
-                if prev_old_txs_p_ids_4[i]:
-                    replace_pids.extend(prev_old_txs_p_ids_4[i])
-
             replace_pids = list(set(replace_pids))    # remove duplicates
             replace_pids_key = [f'P:{t}' for t in replace_pids]
             t_values = r.json().mget(replace_pids_key, ".")
@@ -188,7 +122,7 @@ async def update_thread():
                     p_replace[replace_pids_key[i]] = t_values[i]
                 else:
                     pass
-                    
+            
             # apply for new txs (TODO: Score, Volume, Makers Algorithm)
             for tx in new_txs:
                 p = f'P:{tx[2]["pid"]}' # type: ignore
@@ -207,60 +141,27 @@ async def update_thread():
                         p_replace[p]['dex'] = dex['name']
                         p_replace[p]['dexImage'] = dex['image']
 
+            # -- Calculate Pair Statistics --
+            for pid in new_txs_pids:
+                p = f'P:{pid}'
                 for i in range(env.NUM_DURATIONS):
-                    p_replace[p][f"st{i}"]['txns'] += 1
-                    p_replace[p][f"st{i}"]['volume'] += abs(tx[2]["baseAmount"] * p_replace[p]['price'])
-                    p_replace[p][f"st{i}"]['makers'] += 1   #TODO
+                    p_replace[p][f"st{i}"]['txns'] = (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}') or (0,0))[1] + (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
+                    p_replace[p][f"st{i}"]['volume'] = (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1] + (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
+                    p_replace[p][f"st{i}"]['makers'] = p_replace[p][f"st{i}"]['txns']   # TODO
+                    prevPrice = (r.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1]
+                    p_replace[p][f"st{i}"]['d_price'] = (p_replace[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
 
-                    p_replace[p][f"st{i}"]['d_price'] = 1 if p_replace[p][f"st{i}"]['prevPrice'] == 0 else p_replace[p]['price'] / p_replace[p][f"st{i}"]['prevPrice']
-
-            # apply for recent, old access count
+            # -- Apply for recent --
             for pid in new_r_pids: # type: ignore
                 p = f'P:{pid}'
                 p_replace[p]['r'] += 1
                 for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['r'] += 1
-            for i in range(env.NUM_DURATIONS):
-                for pid in old_rs_pids_4[i]: # type: ignore
-                    p_replace[f'P:{pid}'][f'st{i}']['r'] -= 1
-            
-            # --- Handle Prev Old txs ---
-            for i in range(env.NUM_DURATIONS):
-                if not prev_old_txs_4[i]: continue
-                
-                for tx in prev_old_txs_4[i]:
-                    if tx:
-                        p = f'P:{tx["pid"]}' # type: ignore
-                        amount = abs(tx["baseAmount"])
-                        volume = amount * tx['price']
-                        p_replace[p][f"st{i}"]['prevVolume'] -= volume
-                        p_replace[p][f"st{i}"]['prevAmount'] -= amount
-                        p_replace[p][f"st{i}"]['prevPrice'] = 0 if p_replace[p][f"st{i}"]['prevAmount'] == 0 else p_replace[p][f"st{i}"]['prevVolume'] / p_replace[p][f"st{i}"]['prevAmount']
-                        p_replace[p][f"st{i}"]['d_price'] = 1 if p_replace[p][f"st{i}"]['prevPrice'] == 0 else p_replace[p]['price'] / p_replace[p][f"st{i}"]['prevPrice']
-
-                        
-
-            # --- Handle Old txs ---
-            for i in range(env.NUM_DURATIONS):
-                if not old_txs_4[i]: continue
-                
-                for tx in old_txs_4[i]:
-                    if tx:
-                        p = f'P:{tx["pid"]}' # type: ignore
-                        p_replace[p][f"st{i}"]['txns'] -= 1
-                        amount = abs(tx["baseAmount"])
-                        volume = amount * tx["price"]
-                        p_replace[p][f"st{i}"]['volume'] -= volume
-                        p_replace[p][f"st{i}"]['makers'] -= 1   #TODO
-                        
-                        p_replace[p][f"st{i}"]['prevVolume'] += volume
-                        p_replace[p][f"st{i}"]['prevAmount'] += amount
-                        p_replace[p][f"st{i}"]['prevPrice'] = 0 if p_replace[p][f"st{i}"]['prevAmount'] == 0 else p_replace[p][f"st{i}"]['prevVolume'] / p_replace[p][f"st{i}"]['prevAmount']
-                        p_replace[p][f"st{i}"]['d_price'] = 1 if p_replace[p][f"st{i}"]['prevPrice'] == 0 else p_replace[p]['price'] / p_replace[p][f"st{i}"]['prevPrice']
-            
+           
+            # Calculate score
             for i in range(env.NUM_DURATIONS):
                 for p in p_replace.keys():
-                    d_price = p_replace[p][f"st{i}"]['d_price']
+                    d_price = p_replace[p][f"st{i}"]['d_price'] + 1.0
                     d_price_affect = (d_price if d_price > 1 else 1 if d_price == 0 else 1 / d_price)
                     score = p_replace[p][f'st{i}']['txns'] / 10000 * p_replace[p][f'st{i}']['volume'] / 10000 * d_price_affect * d_price_affect * d_price_affect
                     score *= 1.0 / (common.now() + 1 - p_replace[p]['created'])
@@ -268,8 +169,12 @@ async def update_thread():
                     p_replace[p][f'st{i}']['score'] = score    # TODO score algorithm
             
             r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_replace.values()])
+            # aaa= [(f'P:{p["id"]}', ".", p) for p in p_replace.values()]
+            # for a in aaa:
+            #     r.json().mset([a])
             # TODO sync with PG
             
+            # -- For Query Result Sort --
             for i in range(env.NUM_DURATIONS):
                 r.zadd(f"SS_PS{i}", {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
                 r.zadd(f"SS_PV{i}", {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
@@ -308,10 +213,9 @@ async def update_thread():
             
             t_end = datetime.datetime.now()
             print(f'--- Input Redis ---({rep}): blockId: {new_txs[len(new_txs) - 1][2]["blockSlot"]} =>\
-            {(t_end - t_start).total_seconds()} s\
-            (DB: {(t_end1 - t_start1).total_seconds()} s\
-            TS: {(t_end2 - t_start2).total_seconds()} s\
-            OTHERS:{((t_end - t_start) - (t_end1 - t_start1) - (t_end2 - t_start2)).total_seconds()} s)')
+    {(t_end - t_start).total_seconds()} s\
+    (DB: {(t_end1 - t_start1).total_seconds()} s\
+    OTHERS:{((t_end - t_start) - (t_end1 - t_start1)).total_seconds()} s)')
             rep += 1
         conn.close()
 

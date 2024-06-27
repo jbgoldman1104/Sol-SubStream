@@ -221,7 +221,7 @@ def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: in
 
 def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, limit: int = 100):
     _b('query_tx_realtime')
-    if not address: return {}
+    if not address or not payload: return {}
     if address not in payload: return {}
     rows = payload[address]
     
@@ -313,11 +313,11 @@ def query_price_realtime(address: str = "", address_type: str = "pair", type: st
     if not pid: return []
     pid = pid.decode() # type: ignore
     
-    o = r.ts().get(f'TS_PO{pid}:{interval}', latest = True)
-    h = r.ts().get(f'TS_PH{pid}:{interval}', latest = True)
-    l = r.ts().get(f'TS_PL{pid}:{interval}', latest = True)
-    c = r.ts().get(f'TS_PC{pid}:{interval}', latest = True)
-    v = r.ts().get(f'TS_V{pid}:{interval}', latest = True)
+    o = r.ts().get(f'TS_PO:{pid}:{interval}', latest = True) or (0, 0)
+    h = r.ts().get(f'TS_PH:{pid}:{interval}', latest = True) or (0, 0)
+    l = r.ts().get(f'TS_PL:{pid}:{interval}', latest = True) or (0, 0)
+    c = r.ts().get(f'TS_PC:{pid}:{interval}', latest = True) or (0, 0)
+    v = r.ts().get(f'TS_PV:{pid}:{interval}', latest = True) or (0, 0)
     
     symbols = ['A', 'B'] #common.getSymbols(r, pid)
     pair_symbol = symbols[0] + '-' + symbols[1]
@@ -342,31 +342,26 @@ def query_price_realtime(address: str = "", address_type: str = "pair", type: st
 def query_price_historical(address: str = "", address_type: str = "pair", type: str = '15m', time_from: int = 0, time_to: int = 0):
     _b('query_price_historical')
     interval = env.INTERVALS[type]
-    if not address or not interval: return []
+    if not address or not interval: return {}
     
     pid = r.hget('H_P', address)
-    if not pid: return []
+    if not pid: return {}
     pid = pid.decode() # type: ignore
-    
-    if time_to == 0:   # First Historical Price
-        rows1 = r.ts().revrange(f'TS_PO{pid}:{interval}', '-', '+', time_from // env.BD[interval])
-        rows1.reverse()
-        rows2 = r.ts().revrange(f'TS_PH{pid}:{interval}', '-', '+', time_from // env.BD[interval])
-        rows2.reverse()
-        rows3 = r.ts().revrange(f'TS_PL{pid}:{interval}', '-', '+', time_from // env.BD[interval])
-        rows3.reverse()
-        rows4 = r.ts().revrange(f'TS_PC{pid}:{interval}', '-', '+', time_from // env.BD[interval])
-        rows4.reverse()
-        rows5 = r.ts().revrange(f'TS_V{pid}:{interval}', '-', '+', time_from // env.BD[interval])
-        rows5.reverse()
-    else:
-        # t_from -= common.now() - 1718392375000
-        # t_to -= common.now() - 1718392375000
-        rows1 = r.ts().range(f'TS_PO{pid}:{interval}', time_from, time_to)
-        rows2 = r.ts().range(f'TS_PH{pid}:{interval}', time_from, time_to)
-        rows3 = r.ts().range(f'TS_PL{pid}:{interval}', time_from, time_to)
-        rows4 = r.ts().range(f'TS_PC{pid}:{interval}', time_from, time_to)
-        rows5 = r.ts().range(f'TS_V{pid}:{interval}', time_from, time_to)
+
+    rows1 = r.ts().range(f'TS_PO:{pid}:{interval}', time_from, time_to)
+    if not rows1:
+        last = r.ts().get(f'TS_PO:{pid}:{interval}', latest = True)
+        if not last or time_to < last[0]: return {
+            "type": 'PRICE_DATA_HISTORICAL',
+            "data": []
+        }
+        time_from += last[0] - time_to
+        time_to = last[0]
+        rows1 = r.ts().range(f'TS_PO:{pid}:{interval}', time_from, time_to)
+    rows2 = r.ts().range(f'TS_PH:{pid}:{interval}', time_from, time_to)
+    rows3 = r.ts().range(f'TS_PL:{pid}:{interval}', time_from, time_to)
+    rows4 = r.ts().range(f'TS_PC:{pid}:{interval}', time_from, time_to)
+    rows5 = r.ts().range(f'TS_PV:{pid}:{interval}', time_from, time_to)
         
     symbols = common.getSymbols(r, pid)
     pair_symbol = symbols[0] + '-' + symbols[1]

@@ -174,7 +174,8 @@
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["txns"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[170px] h-[35px] pr-2 justify-end text-right">$ ' + f(st["volume"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[110px] h-[35px] pr-2 justify-end text-right">' + f(st["makers"]) + '</div>\
-            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center">' + formatDPrice(st["d_price"]) + '%</div>\
+            <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[130px] h-[35px] pr-2 justify-center text-center '+
+            (Number(st["d_price"]) > 0 ? "text-[#48BB78]" : Number(st["d_price"]) < 0 ? "text-[#F56565]" : "text-[#888]")+'">' + formatDPrice(st["d_price"]) + '%</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["liq"]) + '</div>\
             <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[150px] h-[35px] pr-2 justify-end text-right">$ ' + f(row["mcap"]) + "</div>\
            </div>"

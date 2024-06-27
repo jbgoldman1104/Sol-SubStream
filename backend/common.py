@@ -35,12 +35,11 @@ def toP(row: tuple):
     #     return {"id":}
     # else:
         return (f"P:{row[0]}", ".", {"id": row[0], "price": row[1], "liq": row[2], "mcap": row[3], "r": row[4],
-                "st0": {"r": row[5], "score": row[6], "txns": row[7], "volume": row[8], "makers": row[9], "d_price": row[10], "prevVolume": row[11], "prevAmount": row[12], "prevPrice": row[13]},
-                "st1": {"r": row[14], "score": row[15], "txns": row[16], "volume": row[17], "makers": row[18], "d_price": row[19], "prevVolume": row[20], "prevAmount": row[21], "prevPrice": row[22]},
-                "st2": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28], "prevVolume": row[29], "prevAmount": row[30], "prevPrice": row[31]},
-                "st3": {"r": row[32], "score": row[33], "txns": row[34], "volume": row[35], "makers": row[36], "d_price": row[37], "prevVolume": row[38], "prevAmount": row[39], "prevPrice": row[40]},
-
-                "baseMint": row[41], "quoteMint": row[42], "poolAddress": row[43], "created": row[44], 
+                "st0": {"r": row[5], "score": row[6], "txns": row[7], "volume": row[8], "makers": row[9], "d_price": row[10],},
+                "st1": {"r": row[11], "score": row[12], "txns": row[13], "volume": row[14], "makers": row[15], "d_price": row[16],},
+                "st2": {"r": row[17], "score": row[18], "txns": row[19], "volume": row[20], "makers": row[21], "d_price": row[22],},
+                "st3": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28],},
+                "baseMint": row[29], "quoteMint": row[30], "poolAddress": row[31], "created": row[32], 
                 "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": ""
                 })
 
@@ -80,7 +79,7 @@ def toTx(cur, r, row: tuple):
             type = "Sell" if baseAmount > 0 else "Buy"
         elif row[11] == "Liquidity":
             type = "Add" if baseAmount > 0 else "Remove"
-        elif row[11] == "Swap": # TODO
+        else: # TODO
             type = "Sell" if baseAmount > 0 else "Buy"
             
         return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2], "blockSlot": row[3],
@@ -207,36 +206,40 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         split = pair.split('/')
         # r.hset('H_P2M', pool, pair)
         newP = toP((f'{pid}', 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0,
                         split[0], split[1], pool, now()))
         r.json().mset([newP])
         for i in range(env.NUM_DURATIONS):
             r.zadd(f"SS_PS{i}", {newP[2]["id"] : newP[2][f"st{i}"]["score"]}) # type: ignore
         
-        r.ts().create(f'TS_P{pid}', retention_msecs=env.DAY*1000)
+        r.ts().create(f'TS_P:{pid}', retention_msecs=env.DAY*1000)
         for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_PO{pid}:{i}', retention_msecs=env.RP[i]*1000)    
-            r.ts().createrule(f'TS_P{pid}', f'TS_PO{pid}:{i}', aggregation_type="first", bucket_size_msec=env.BD[i])
-        
+            # Open
+            r.ts().create(f'TS_PO:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PO:{pid}:{i}', aggregation_type="first", bucket_size_msec=env.BD[i])
+            # High
+            r.ts().create(f'TS_PH:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PH:{pid}:{i}', aggregation_type="max", bucket_size_msec=env.BD[i])
+            # Low
+            r.ts().create(f'TS_PL:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PL:{pid}:{i}', aggregation_type="min", bucket_size_msec=env.BD[i])
+            # Close
+            r.ts().create(f'TS_PC:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PC:{pid}:{i}', aggregation_type="last", bucket_size_msec=env.BD[i])
+            # Average
+            r.ts().create(f'TS_PA:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PA:{pid}:{i}', aggregation_type="avg", bucket_size_msec=env.BD[i])
+            # Count(Transations)
+            r.ts().create(f'TS_PT:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_P:{pid}', f'TS_PT:{pid}:{i}', aggregation_type="count", bucket_size_msec=env.BD[i])
+            
+        r.ts().create(f'TS_V:{pid}', retention_msecs=env.DAY*1000)
         for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_PH{pid}:{i}', retention_msecs=env.RP[i]*1000)    
-            r.ts().createrule(f'TS_P{pid}', f'TS_PH{pid}:{i}', aggregation_type="max", bucket_size_msec=env.BD[i])
-        
-        for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_PL{pid}:{i}', retention_msecs=env.RP[i]*1000)    
-            r.ts().createrule(f'TS_P{pid}', f'TS_PL{pid}:{i}', aggregation_type="min", bucket_size_msec=env.BD[i])
-        
-        for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_PC{pid}:{i}', retention_msecs=env.RP[i]*1000)    
-            r.ts().createrule(f'TS_P{pid}', f'TS_PC{pid}:{i}', aggregation_type="last", bucket_size_msec=env.BD[i])
-        
-        r.ts().create(f'TS_V{pid}', retention_msecs=env.DAY*1000)
-        for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_V{pid}:{i}', retention_msecs=env.RP[i]*1000)    
-            r.ts().createrule(f'TS_V{pid}', f'TS_V{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
+            r.ts().create(f'TS_PV:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            r.ts().createrule(f'TS_V:{pid}', f'TS_PV:{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
 
         baseId = mintToId(cur, r, split[0])
         quoteId = mintToId(cur, r, split[1])
@@ -280,6 +283,8 @@ def getPrice(solPrice, baseAmount, quoteAmount, baseMint, quoteMint):
             price = solPrice * quoteAmount / baseAmount
         else:
             #TODO
+            # r.json().mget(replace_pids_key, ".")
+            # p = f'P:{tx[2]["pid"]}'
             pass
     return abs(price)
 # __app__ = [connect_redis, connect_db]
