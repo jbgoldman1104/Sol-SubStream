@@ -43,7 +43,7 @@
     var search = ''
 
     var socket = io(location.origin + "/socket.io/st", {debug: true});
-    // var socket = io(location.origin + "/socket.io/")
+    
     socket.on('connect', () => {
         console.log('Connected to server')
         // get_pairs()
@@ -90,15 +90,6 @@
         }
     }
 
-//    {
-//     "type": "RANK_DATA",
-//     "data": {
-//         "queryType": "simple",
-//         "chartType": "1m",
-//         "address": "7qbRF6YsyGuLUVs6Y1q64bdVrfe4ZcUUz1JRdoVNUJnm",
-//         "currency": "pair"
-//     }
-// }
     socket.on('message', (data) => {
         console.log(data.type)
         if (data.type == 'PAIRS_DATA') {
@@ -112,24 +103,24 @@
     
     function updateSearch() {
         search = document.getElementById('search').value
-        fetchData()
+        subscribe_pairs()
     }
 
     function setDuration(v) {
       duration = v
-      fetchData()
+      subscribe_pairs()
     }
     function setSort(v) {
       sort = v
-      fetchData()
+      subscribe_pairs()
     }
     function setSkip(v) {
       skip = v
-      fetchData()
+      subscribe_pairs()
     }
     function setLimit(v) {
       limit = v
-      fetchData()
+      subscribe_pairs()
     }
     function setPair(v) {
       location.href = "/trade/" + v
@@ -184,28 +175,6 @@
       if (element != undefined)
         element.innerHTML = html
     }
-    function fetchData() {
-        subscribe_pairs()
-        return
-        if (!idle) return
-        idle = false
-        count++
-        document.getElementById("count").innerHTML = "request: " + count
-        fetch(
-            "/api/st/query?duration=" + duration + "&sort=" + sort + "&skip=" + skip + "&limit=" + limit + ""
-        )
-        .then((response) => response.json())
-        .then((data) => {
-          idle = true
-          setData(data.data)
-        })
-        .catch((error) => {
-          idle = true
-          console.error("Error:", error)
-        })
-    }
-
-    // fetchData()
-    //setInterval(fetchData, 1000)
+    
   </script>
 </html>

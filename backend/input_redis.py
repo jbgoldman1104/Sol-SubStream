@@ -162,8 +162,8 @@ async def update_thread():
             for i in range(env.NUM_DURATIONS):
                 for p in p_replace.keys():
                     d_price = p_replace[p][f"st{i}"]['d_price'] + 1.0
-                    d_price_affect = (d_price if d_price > 1 else 1 if d_price == 0 else 1 / d_price)
-                    score = p_replace[p][f'st{i}']['txns'] / 10000 * p_replace[p][f'st{i}']['volume'] / 10000 * d_price_affect * d_price_affect * d_price_affect
+                    d_price_affect = d_price if d_price > 1 else 1 # if d_price == 0 else 1 / d_price
+                    score = p_replace[p][f'st{i}']['txns'] / 10000 * p_replace[p][f'st{i}']['volume'] / 10000 * d_price_affect
                     score *= 1.0 / (common.now() + 1 - p_replace[p]['created'])
                     # score = p_replace[p][f'st{i}']['volume']
                     p_replace[p][f'st{i}']['score'] = score    # TODO score algorithm

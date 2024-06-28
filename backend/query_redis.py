@@ -88,7 +88,7 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
     elif sort == "ratio": set = f"SS_PPR{duration}"
     elif sort == "liq": set = f"SS_PL"
     elif sort == "mcap": set = f"SS_PM"
-    else: return []
+    else: return {}
         
     if sort_dir == "desc":
         rank = r.zrevrange(set, skip, skip + limit - 1)    
@@ -101,7 +101,7 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
         _b()
         return rlt
     else:
-        return []
+        return {}
     # TODO custom sort with PG
     # return r.json().mget(["token:T1111"], ".")
 

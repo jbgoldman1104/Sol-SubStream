@@ -27,7 +27,7 @@ NTEST = 20
 USE_PG = True
 USE_P_TABLE = False
 DB_READ_SIZE = 1000
-NUM_REQUESTS = 8
+NUM_REQUESTS = 1
 NUM_DURATIONS = len(DURATION)
 
 # --- exported files ---

@@ -173,8 +173,8 @@ async def read_tx(pool: str = "", sort: str = "blockTime", direction: str = "des
     return query_redis.query_tx_historical(pool, sort, direction, skip, limit)
 
 @app.get("/api/tx/chart")
-async def read_chart(pool: str = "", t_from: int = 0, t_to: int = 0, interval: int = 0):
-    return query_redis.query_price_historical(pool, t_from, t_to, interval)
+async def read_chart(address: str = "", address_type="pair", type="15m", time_from: int = 0, time_to: int = 0, interval: int = 0):
+    return query_redis.query_price_historical(address, address_type, type, time_from, time_to)
 
 app.mount("/", StaticFiles(directory=str(Path(BASE_DIR, 'static'))), name="static")
 
