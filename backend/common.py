@@ -216,7 +216,7 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         for i in range(env.NUM_DURATIONS):
             r.zadd(f"SS_PScore{i}",     {pid : 0})
             r.zadd(f"SS_PVolume{i}",    {pid : 0})
-            r.zadd(f"SS_PTx{i}",        {pid : 0})
+            r.zadd(f"SS_PTxns{i}",        {pid : 0})
             r.zadd(f"SS_PDPrice{i}",    {pid : 0})
             r.zadd(f"SS_PMakers{i}",    {pid : 0})
             r.zadd(f"SS_PBuyers{i}",    {pid : 0})

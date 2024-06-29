@@ -134,8 +134,13 @@ async def update_thread():
                 p_replace[p]['price'] = tx[2]['price']
                 p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_replace[p]['mcap'] = 1e9 * p_replace[p]['price']  # TODO with T:*
+                p_replace[p]['volume'] = p_replace[p]['volume'] + tx[2]['price'] * abs(tx[2]['baseAmount'])
+                if p_replace[p]['volume'] < 0:
+                    aaaa = 1
 
-                # -- Make Makers, Buyers, Sellers tree --
+                # -- Make Txns, Makers, Buyers, Sellers tree --
+                r.zadd(f'SS_PVolume_Ref{pid}', {p_replace[p]['volume']: tx[2]['blockTime']})
+                r.zadd(f'SS_PTxns_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
                 r.zadd(f'SS_PMakers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 if tx[2]['type'] == 'Buy':
                     r.zadd(f'SS_PBuyers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
@@ -154,12 +159,19 @@ async def update_thread():
             for pid in new_txs_pids:
                 p = f'P:{pid}'
                 for i in range(env.NUM_DURATIONS):
-                    p_replace[p][f"st{i}"]['txns'] = (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}') or (0,0))[1] + (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
+                    # p_replace[p][f"st{i}"]['txns'] = (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}') or (0,0))[1] + (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
                     p_replace[p][f"st{i}"]['volume'] = (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1] + (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
                     # p_replace[p][f"st{i}"]['makers'] = p_replace[p][f"st{i}"]['txns']   # TODO
                     prevPrice = (r.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1]
                     p_replace[p][f"st{i}"]['d_price'] = (p_replace[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
 
+                    val = r.zrevrangebyscore(f'SS_PVolume_Ref{pid}', now - env.DURATION[i], '-inf', 0, 1)
+                    if val:
+                        val = val[0].decode()
+                    else:
+                        val = 0
+                    p_replace[p][f"st{i}"]['volume'] = p_replace[p]['volume'] - float(val)
+                    p_replace[p][f"st{i}"]['txns'] = r.zcount(f'SS_PTxns_Ref{pid}', now - env.DURATION[i], now)
                     p_replace[p][f"st{i}"]['makers'] = r.zcount(f'SS_PMakers_Ref{pid}', now - env.DURATION[i], now)
                     p_replace[p][f"st{i}"]['buyers'] = r.zcount(f'SS_PBuyers_Ref{pid}', now - env.DURATION[i], now)
                     p_replace[p][f"st{i}"]['sellers'] = r.zcount(f'SS_PSellers_Ref{pid}', now - env.DURATION[i], now)
@@ -200,7 +212,7 @@ async def update_thread():
             for i in range(env.NUM_DURATIONS):
                 r.zadd(f"SS_PScore{i}",     {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
                 r.zadd(f"SS_PVolume{i}",    {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
-                r.zadd(f"SS_PTx{i}",        {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
+                r.zadd(f"SS_PTxns{i}",      {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
                 r.zadd(f"SS_PDPrice{i}",    {p["id"] : p[f"st{i}"]["d_price"] for p in p_replace.values()})
                 r.zadd(f"SS_PMakers{i}",    {p["id"] : p[f"st{i}"]["makers"] for p in p_replace.values()})
                 r.zadd(f"SS_PBuyers{i}",    {p["id"] : p[f"st{i}"]["buyers"] for p in p_replace.values()})
