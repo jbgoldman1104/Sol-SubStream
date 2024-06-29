@@ -30,8 +30,8 @@ def delete_all():
     conn.commit()
     
     # --- Delete Saved Redis Dump Files ---
-    deleteFile(env.FILENAME_T)
-    deleteFile(env.FILENAME_FailedT)
+    # deleteFile(env.FILENAME_T)
+    # deleteFile(env.FILENAME_FailedT)
 
     _b()
 

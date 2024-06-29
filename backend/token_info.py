@@ -95,10 +95,10 @@ def get_nft(id, mint_key):
         # client = Client(env.API_KEY_TEST)
         token = Token(solana_clients[id % len(solana_clients)], PublicKey(mint_key), TOKEN_PROGRAM_ID, Keypair.generate())
         info = token.get_mint_info()
-        # try:  # TODO slow
-        #     uri_data = requests.get(meta['uri']).json()
-        # except:
-        uri_data = {}
+        try:  # TODO slow
+            uri_data = requests.get(meta['uri']).json()
+        except:
+            uri_data = {}
         
     except:
         return None    #probably not a nft
@@ -115,9 +115,10 @@ async def update_nft(id, mint):
     meta = get_nft(id, mint)
 
     if meta:
-        if meta[15] and meta[15].startsWith("data:image/"):
-            meta[15] = None     # TODO make thumbnail image to server
         print(f'{meta[0]} - {meta[3]} : {meta[4]} => {meta[15]}') # type: ignore
+        if meta[15] and meta[15].startswith("data:image/"):
+            meta = list(meta)
+            meta[15] = None     # TODO make thumbnail image to server
         r.json().mset([common.toT(meta)])
         # write to file
         common.writeT(meta)

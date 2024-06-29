@@ -40,7 +40,7 @@ async def update_thread():
         
         # # for Sync with R & PG purpose
         # rlt = r.hmget()
-        # rlt = r.zrange('SS_PS0', 0, -1)
+        # rlt = r.zrange('SS_PScore0', 0, -1)
         # token_ids = set([t.decode() for t in rlt]) # type: ignore
         
         solPrice = 160
@@ -176,13 +176,13 @@ async def update_thread():
             
             # -- For Query Result Sort --
             for i in range(env.NUM_DURATIONS):
-                r.zadd(f"SS_PS{i}", {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
-                r.zadd(f"SS_PV{i}", {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
-                r.zadd(f"SS_PX{i}", {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
-                r.zadd(f"SS_PPR{i}", {p["id"] : p[f"st{i}"]["d_price"] for p in p_replace.values()})
-            r.zadd(f"SS_PP", {p["id"] : p["price"] for p in p_replace.values()})
-            r.zadd(f"SS_PL", {p["id"] : p["liq"] for p in p_replace.values()})
-            r.zadd(f"SS_PM", {p["id"] : p["mcap"] for p in p_replace.values()})
+                r.zadd(f"SS_PScore{i}", {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
+                r.zadd(f"SS_PVolume{i}", {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
+                r.zadd(f"SS_PTx{i}", {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
+                r.zadd(f"SS_PDPrice{i}", {p["id"] : p[f"st{i}"]["d_price"] for p in p_replace.values()})
+            r.zadd(f"SS_PPrice", {p["id"] : p["price"] for p in p_replace.values()})
+            r.zadd(f"SS_PLiq", {p["id"] : p["liq"] for p in p_replace.values()})
+            r.zadd(f"SS_PMcap", {p["id"] : p["mcap"] for p in p_replace.values()})
 
             # TODO sync with PG
             conn.commit()

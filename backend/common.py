@@ -39,8 +39,9 @@ def toP(row: tuple):
                 "st1": {"r": row[11], "score": row[12], "txns": row[13], "volume": row[14], "makers": row[15], "d_price": row[16],},
                 "st2": {"r": row[17], "score": row[18], "txns": row[19], "volume": row[20], "makers": row[21], "d_price": row[22],},
                 "st3": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28],},
-                "baseMint": row[29], "quoteMint": row[30], "poolAddress": row[31], "created": row[32], 
-                "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": ""
+                "baseMint": row[29], "quoteMint": row[30], "poolAddress": row[31], "created": row[32],
+                ""
+                "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": "",
                 })
 
 def getPSymbols(r, p):
@@ -154,7 +155,7 @@ def writeFailedT(id, mint):
 def toD(row: tuple):
     return (f"D:{row[1]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": f'/images/dex/{row[3] if row[3] else "solana/solana.svg"}'})
 
-def toT(row: tuple):
+def toT(row: tuple|list):
     return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
                                 "created": row[6], "verified": row[7], "share": row[8],  "mint_authority": row[9], "supply": row[10], 
                                 "decimals": row[11], "supply_real": row[12], "is_initialized": row[13], "freeze_authority": row[14],
@@ -213,8 +214,11 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
                         split[0], split[1], pool, now()))
         r.json().mset([newP])
         for i in range(env.NUM_DURATIONS):
-            r.zadd(f"SS_PS{i}", {newP[2]["id"] : newP[2][f"st{i}"]["score"]}) # type: ignore
+            r.zadd(f"SS_PScore{i}", {pid : newP[2][f"st{i}"]["score"]}) # type: ignore
         
+        r.zadd(f'SS_PMaker', {pid: 0})
+
+        # Timeseries
         r.ts().create(f'TS_P:{pid}', retention_msecs=env.DAY*1000)
         for i in range(env.NUM_INTERVALS):
             # Open
@@ -244,8 +248,8 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         baseId = mintToId(cur, r, split[0])
         quoteId = mintToId(cur, r, split[1])
 
-        r.sadd(f"S_TP{baseId}", pid) # type: ignore
-        r.sadd(f"S_TP{quoteId}", pid) # type: ignore
+        r.sadd(f"S_TtoPs{baseId}", pid) # type: ignore
+        r.sadd(f"S_TtoPs{quoteId}", pid) # type: ignore
 
         # TODO sync with PG
         # insertP(cur, newP)

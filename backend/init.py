@@ -145,7 +145,7 @@ def init_redis():
     importT(r, env.FILENAME_FailedT)
     
     
-    # --- Import P:, SS_PS ---
+    # --- Import P:, SS_PScore ---
     # --- Import TX:, EN_TX ---
 
     
@@ -178,7 +178,7 @@ def init_redis():
         #         # r.hmset('H_T', {})    # TODO
         #         read_p_id = pairs[len(pairs)-1][2]["id"]
         #         for i in range(env.NUM_DURATIONS):
-        #             r.zadd(f"SS_PS{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
+        #             r.zadd(f"SS_PScore{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
         #         if len(rows) < env.DB_READ_SIZE: break
         
     
