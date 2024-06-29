@@ -34,13 +34,13 @@ def toP(row: tuple):
     # if env.USE_PG:
     #     return {"id":}
     # else:
-        return (f"P:{row[0]}", ".", {"id": row[0], "price": row[1], "liq": row[2], "mcap": row[3], "r": row[4],
-                "st0": {"r": row[5], "score": row[6], "txns": row[7], "volume": row[8], "makers": row[9], "d_price": row[10],},
-                "st1": {"r": row[11], "score": row[12], "txns": row[13], "volume": row[14], "makers": row[15], "d_price": row[16],},
-                "st2": {"r": row[17], "score": row[18], "txns": row[19], "volume": row[20], "makers": row[21], "d_price": row[22],},
-                "st3": {"r": row[23], "score": row[24], "txns": row[25], "volume": row[26], "makers": row[27], "d_price": row[28],},
-                "baseMint": row[29], "quoteMint": row[30], "poolAddress": row[31], "created": row[32],
-                ""
+        return (f"P:{row[0]}", ".", {"id": row[0], "price": 0, "liq": 0, "mcap": 0, 
+                        "r": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0,
+                "st0": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
+                "st1": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
+                "st2": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
+                "st3": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
+                "baseMint": row[1], "quoteMint": row[2], "poolAddress": row[3], "created": row[4],
                 "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": "",
                 })
 
@@ -206,18 +206,23 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         r.hset('H_P', pool, pid)
         split = pair.split('/')
         # r.hset('H_P2M', pool, pair)
-        newP = toP((f'{pid}', 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0,
-                        split[0], split[1], pool, now()))
+        newP = toP((f'{pid}', split[0], split[1], pool, now()))
         r.json().mset([newP])
-        for i in range(env.NUM_DURATIONS):
-            r.zadd(f"SS_PScore{i}", {pid : newP[2][f"st{i}"]["score"]}) # type: ignore
-        
-        r.zadd(f'SS_PMaker', {pid: 0})
 
+        # -- For Sorting --
+        r.zadd(f"SS_PPrice",   {pid : 0})
+        r.zadd(f"SS_PLiq",   {pid : 0})
+        r.zadd(f"SS_PMcap",   {pid : 0})
+        for i in range(env.NUM_DURATIONS):
+            r.zadd(f"SS_PScore{i}",     {pid : 0})
+            r.zadd(f"SS_PVolume{i}",    {pid : 0})
+            r.zadd(f"SS_PTx{i}",        {pid : 0})
+            r.zadd(f"SS_PDPrice{i}",    {pid : 0})
+            r.zadd(f"SS_PMakers{i}",    {pid : 0})
+            r.zadd(f"SS_PBuyers{i}",    {pid : 0})
+            r.zadd(f"SS_PSellers{i}",   {pid : 0})
+        
+        
         # Timeseries
         r.ts().create(f'TS_P:{pid}', retention_msecs=env.DAY*1000)
         for i in range(env.NUM_INTERVALS):

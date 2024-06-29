@@ -83,12 +83,14 @@ def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "sc
     
     if sort == "score": set = f"SS_PScore{duration}"
     elif sort == "price": set = f"SS_PPrice"
+    elif sort == "liq": set = "SS_PLiq"
+    elif sort == "mcap": set = "SS_PMcap"
     elif sort == "volume": set = f"SS_PVolume{duration}"
     elif sort == "txns": set = f"SS_PTx{duration}"
     elif sort == "ratio": set = f"SS_PDPrice{duration}"
-    elif sort == "liq": set = "SS_PLiq"
-    elif sort == "mcap": set = "SS_PMcap"
-    elif sort == "maker": set = "SS_PMaker"
+    elif sort == "makers": set = f"SS_PMakers{duration}"
+    elif sort == "buyers": set = f"SS_PBuyers{duration}"
+    elif sort == "sellers": set = f"SS_PSellers{duration}"
     else: return {}
         
     if sort_dir == "desc":

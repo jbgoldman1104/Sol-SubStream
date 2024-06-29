@@ -51,7 +51,7 @@ async def update_thread():
             
             t_start = datetime.datetime.now()
 
-            now = common.now()
+            now = common.nows()
             prev_time = r.zrevrange('SS_BLK', 0, 0, withscores=True)
             prev = now if not prev_time else int(prev_time[0][1]) # type: ignore
             # delta = now - prev
@@ -123,9 +123,10 @@ async def update_thread():
                 else:
                     pass
             
-            # apply for new txs (TODO: Score, Volume, Makers Algorithm)
+            # -- Apply for new txs (TODO: Score, Volume, Makers Algorithm) --
             for tx in new_txs:
-                p = f'P:{tx[2]["pid"]}' # type: ignore
+                pid = tx[2]["pid"]
+                p = f'P:{pid}' # type: ignore
                 if tx[2]['instructionType'] == 'Liquidity':
                     p_replace[p]['price'] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
                     continue
@@ -133,7 +134,15 @@ async def update_thread():
                 p_replace[p]['price'] = tx[2]['price']
                 p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_replace[p]['mcap'] = 1e9 * p_replace[p]['price']  # TODO with T:*
+
+                # -- Make Makers, Buyers, Sellers tree --
+                r.zadd(f'SS_PMakers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                if tx[2]['type'] == 'Buy':
+                    r.zadd(f'SS_PBuyers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                else:
+                    r.zadd(f'SS_PSellers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 
+                # -- Assert dex info --
                 if not p_replace[p]['dex']:
                     p_replace[p]['outerProgram'] = tx[2]['outerProgram']
                     dex = r.json().get(f'D:{tx[2]["outerProgram"]}')
@@ -147,9 +156,14 @@ async def update_thread():
                 for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['txns'] = (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}') or (0,0))[1] + (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
                     p_replace[p][f"st{i}"]['volume'] = (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1] + (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
-                    p_replace[p][f"st{i}"]['makers'] = p_replace[p][f"st{i}"]['txns']   # TODO
+                    # p_replace[p][f"st{i}"]['makers'] = p_replace[p][f"st{i}"]['txns']   # TODO
                     prevPrice = (r.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1]
                     p_replace[p][f"st{i}"]['d_price'] = (p_replace[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
+
+                    p_replace[p][f"st{i}"]['makers'] = r.zcount(f'SS_PMakers_Ref{pid}', now - env.DURATION[i], now)
+                    p_replace[p][f"st{i}"]['buyers'] = r.zcount(f'SS_PBuyers_Ref{pid}', now - env.DURATION[i], now)
+                    p_replace[p][f"st{i}"]['sellers'] = r.zcount(f'SS_PSellers_Ref{pid}', now - env.DURATION[i], now)
+                    
 
             # -- Apply for recent --
             for pid in new_r_pids: # type: ignore
@@ -158,7 +172,7 @@ async def update_thread():
                 for i in range(env.NUM_DURATIONS):
                     p_replace[p][f"st{i}"]['r'] += 1
            
-            # Calculate score
+            # -- Calculate score --
             for i in range(env.NUM_DURATIONS):
                 for p in p_replace.keys():
                     d_price = p_replace[p][f"st{i}"]['d_price'] + 1.0
@@ -168,21 +182,30 @@ async def update_thread():
                     # score = p_replace[p][f'st{i}']['volume']
                     p_replace[p][f'st{i}']['score'] = score    # TODO score algorithm
             
+                    
+            
+            
+            
             r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_replace.values()])
             # aaa= [(f'P:{p["id"]}', ".", p) for p in p_replace.values()]
             # for a in aaa:
             #     r.json().mset([a])
             # TODO sync with PG
             
+            
             # -- For Query Result Sort --
+            r.zadd(f"SS_PPrice",    {p["id"] : p["price"] for p in p_replace.values()})
+            r.zadd(f"SS_PLiq",      {p["id"] : p["liq"] for p in p_replace.values()})
+            r.zadd(f"SS_PMcap",     {p["id"] : p["mcap"] for p in p_replace.values()})
             for i in range(env.NUM_DURATIONS):
-                r.zadd(f"SS_PScore{i}", {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
-                r.zadd(f"SS_PVolume{i}", {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
-                r.zadd(f"SS_PTx{i}", {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
-                r.zadd(f"SS_PDPrice{i}", {p["id"] : p[f"st{i}"]["d_price"] for p in p_replace.values()})
-            r.zadd(f"SS_PPrice", {p["id"] : p["price"] for p in p_replace.values()})
-            r.zadd(f"SS_PLiq", {p["id"] : p["liq"] for p in p_replace.values()})
-            r.zadd(f"SS_PMcap", {p["id"] : p["mcap"] for p in p_replace.values()})
+                r.zadd(f"SS_PScore{i}",     {p["id"] : p[f"st{i}"]["score"] for p in p_replace.values()})
+                r.zadd(f"SS_PVolume{i}",    {p["id"] : p[f"st{i}"]["volume"] for p in p_replace.values()})
+                r.zadd(f"SS_PTx{i}",        {p["id"] : p[f"st{i}"]["txns"] for p in p_replace.values()})
+                r.zadd(f"SS_PDPrice{i}",    {p["id"] : p[f"st{i}"]["d_price"] for p in p_replace.values()})
+                r.zadd(f"SS_PMakers{i}",    {p["id"] : p[f"st{i}"]["makers"] for p in p_replace.values()})
+                r.zadd(f"SS_PBuyers{i}",    {p["id"] : p[f"st{i}"]["buyers"] for p in p_replace.values()})
+                r.zadd(f"SS_PSellers{i}",   {p["id"] : p[f"st{i}"]["sellers"] for p in p_replace.values()})
+                
 
             # TODO sync with PG
             conn.commit()
