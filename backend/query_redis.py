@@ -163,6 +163,15 @@ def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: in
     r.zadd('SS_PR', {f'{pid}': common.now()})
     rows = [json.loads(doc['json']) for doc in rlt.docs] # type: ignore
     
+    if len(rows) < limit:
+        l = len(rows)
+        cur.execute("SELECT * FROM \"trade\" WHERE \"poolAddress\" = \"%s\" ORDER BY \"blockTime\" DESC OFFSET %s LIMIT %s" ,
+                    address, skip + l, limit - l)
+        rows_pg = cur.fetchmany(limit)
+        if rows_pg:
+            # txs = [common.toTx(cur, r, row) for row in rows_pg]
+            rows.append(rows_pg)
+    
     # TODO mintAddress.
     split = common.getMintAddresses(r, pid)
     tids = r.hmget('H_T', [split[0], split[1]])

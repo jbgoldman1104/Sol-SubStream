@@ -32,10 +32,15 @@ export async function initialize() {
 
 export async function insertTrades(message: any) {
     try {
-        console.log('insertTrades :>> ', message?.data[0].blockSlot, message?.data[0].blockTime);
+        let unix_timestamp = message?.data[0].blockTime;
+        var date = new Date(unix_timestamp * 1000 + 9 * 3600000);
         // console.log('insertTrades :>> ', message?.data[0]);
+        let t1 = performance.now()
         TradeDataMap(database);
         TradeData.bulkCreate(message?.data)
+        let t2 = performance.now()
+        console.log('insertTrades :>> ', message?.data[0].blockSlot, message?.data[0].blockTime, '  ',
+            date.toISOString().replace(/[T]/g, ' ').substring(0, 19), '  ', (t2 - t1).toFixed(2), ' ms');
     } catch (error) {
         console.error('error :>> ', error);
     }

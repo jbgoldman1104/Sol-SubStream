@@ -6,32 +6,15 @@ import common
 import os
 from redis.commands.json.path import Path
 from benchmark import _b
-# import redis.commands.search.aggregation as aggregations
-# import redis.commands.search.reducers as reducers
-# from redis.commands.search.field import TextField, NumericField, TagField
-# from redis.commands.search.indexDefinition import IndexDefinition, IndexType
-# from redis.commands.search.query import NumericFilter, Query
-
 from random import random as rd
 from random import randint as rdi
 
+import input_pg
+
 import datetime
 import json
-from redis.commands.search.field import (
-    GeoField,
-    GeoShapeField,
-    NumericField,
-    TagField,
-    TextField,
-    VectorField,
-)
+from redis.commands.search.field import (NumericField, TagField, TextField, )
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
-
-# async def read_T():
-#     cur.execute("SELECT * FROM t_tx", [])
-#     cur.fetchone()
-#     for row in cur:
-#         yield row
 
 def importD(r, filename: str):
     print('-- init process started. --')
@@ -80,6 +63,8 @@ def importT(r, filename: str):
     if len(rows) > 0: r.json().mset(rows)
     # ts == line.split('^')
 
+
+
 def init_redis():
     r = common.connect_redis()
     if env.USE_PG:
@@ -96,23 +81,21 @@ def init_redis():
     now = common.now()
     
     # --- Check PG Table Existence ---
-    # sync
-    cur.execute("SELECT * FROM information_schema.tables WHERE table_name=%s", ('sync',))
+    qExists = "SELECT * FROM information_schema.tables WHERE table_name=%s"
+    # - sync -
+    cur.execute(qExists, ('sync',))
     if not bool(cur.rowcount):
         cur.execute("""
-            CREATE TABLE sync (
-                "read_tx_id" integer,
-                "read_p_id" integer
-                )
+            CREATE TABLE sync ("read_tx_id" INT, "read_p_id" INT)
             """)
-        conn.commit()
+
     cur.execute("SELECT * FROM sync", [])
     if not bool(cur.rowcount):
         cur.execute("INSERT INTO sync (read_tx_id, read_p_id) VALUES (%s, %s)", (0, 0))
-        conn.commit()
     
-    # trade
-    cur.execute("SELECT * FROM information_schema.tables WHERE table_name=%s", ('trade',))
+   
+    # - trade -
+    cur.execute(qExists, ('trade',))
     if not bool(cur.rowcount):
         cur.execute(
         """
@@ -132,11 +115,110 @@ def init_redis():
                 "outerProgram" VARCHAR(45),
                 "innerProgram" VARCHAR(45),
                 "baseReserve" float8 NOT NULL,
-                "quoteReserve" float8 NOT NULL);
+                "quoteReserve" float8 NOT NULL,
+                "pid" INT,
+                "type" VARCHAR(10),
+                "price" float8
+                );
         """
         )
-        conn.commit()
-        
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_blockTime ON \"trade\" (\"blockTime\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_baseAmount ON \"trade\" (\"baseAmount\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_quoteAmount ON \"trade\" (\"quoteAmount\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_signer ON \"trade\" (\"signer\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_pid ON \"trade\" (\"pid\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_type ON \"trade\" (\"type\")")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_price ON \"trade\" (\"price\")")
+
+
+    # - tokens -
+    cur.execute(qExists, ('tokens',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE tokens (
+                "id" INT PRIMARY KEY,
+                "mint" VARCHAR(45) NOT NULL,
+                "name" VARCHAR(50),
+                "symbol" VARCHAR(20),
+                "uri" VARCHAR(256),
+                "seller_fee_basis_points" float8,
+                "creators" VARCHAR(256),
+                "verified" VARCHAR(256),
+                "share" VARCHAR(256),
+                "mint_authority" VARCHAR(256),
+                "supply" float8,
+                "image" VARCHAR(256),
+                "description" VARCHAR(256),
+                "twitter" VARCHAR(256),
+                "website" VARCHAR(256),
+                
+                "holders" INT,
+                "created" INT
+                )
+            """)
+        # cur.execute("CREATE INDEX IF NOT EXISTS idx_price ON \"trade\" (\"price\")")
+                        
+    # - pairs -
+    cur.execute(qExists, ('pairs',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE pairs (
+                "id" INT PRIMARY KEY,
+                "price" float8,
+                "liq" float8,
+                "mcap" float8,
+                "cSupply" float8,
+                "tSupply" float8,
+                "baseMint" VARCHAR(45),
+                "quoteMint" VARCHAR(45),
+                "poolAddress" VARCHAR(45),
+                "created" INT,
+                "baseSymbol" VARCHAR(20),
+                "quoteSymbol" VARCHAR(20),
+                "baseName" VARCHAR(50),
+                "quoteName" VARCHAR(50),
+                "dex" VARCHAR(45),
+                "dexImage" VARCHAR(256),
+                "outerProgram" VARCHAR(45),
+                "holders" INT,
+                "r" INT, "txns" INT, "buys" INT, "sells" INT, "volume" float8, "buyVolume" float8, "sellVolume" float8, "makers" INT, "buyers" INT, "sellers" INT,
+                "r0" INT, "score0" float8, "txns0" INT, "buys0" INT, "sells0" INT, "volume0" float8, "buyVolume0" float8, "sellVolume0" float8, "makers0" INT, "buyers0" INT, "sellers0" INT, "d_price0" float8,
+                "r1" INT, "score1" float8, "txns1" INT, "buys1" INT, "sells1" INT, "volume1" float8, "buyVolume1" float8, "sellVolume1" float8, "makers1" INT, "buyers1" INT, "sellers1" INT, "d_price1" float8,
+                "r2" INT, "score2" float8, "txns2" INT, "buys2" INT, "sells2" INT, "volume2" float8, "buyVolume2" float8, "sellVolume2" float8, "makers2" INT, "buyers2" INT, "sellers2" INT, "d_price2" float8,
+                "r3" INT, "score3" float8, "txns3" INT, "buys3" INT, "sells3" INT, "volume3" float8, "buyVolume3" float8, "sellVolume3" float8, "makers3" INT, "buyers3" INT, "sellers3" INT, "d_price3" float8
+                )
+            """)
+    
+    # - wallets -
+    cur.execute(qExists, ('wallets',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE wallets (
+                "id" INT PRIMARY KEY,
+                "address" VARCHAR(45)
+                
+                )
+            """)
+    
+    # - wallets -
+    cur.execute(qExists, ('dexes',))
+    if not bool(cur.rowcount):
+        cur.execute("""
+            CREATE TABLE dexes (
+                "id" INT PRIMARY KEY,
+                "address" VARCHAR(45),
+                "name" VARCHAR(50),
+                "image" VARCHAR(255)
+                )
+            """)
+    conn.commit()
+
+    # --------------------- Import Data From PG ---------------------
+    input_pg.read_tokens(cur, r)
+    input_pg.read_pairs(cur, r)
+    input_pg.read_wallets(cur, r)
+    
+
     # --- Import D:, H_D ---
     importD(r, env.FILENAME_D)
 
@@ -148,47 +230,7 @@ def init_redis():
     # --- Import P:, SS_PScore ---
     # --- Import TX:, EN_TX ---
 
-    
-    # r.sadd('EN_TX', *[t[2]["id"] for t in txs])
-    pairs = []
-    txs = []
-    read_tx_id = 0
-    read_p_id = 0
-    if env.USE_PG:
-        pass
-        # - import TX table from PG -
-        # read_tx_id = common.getSyncValue(cur, "read_tx_id", 0)
-        # cur.execute("SELECT * FROM trade WHERE id > %s", [read_tx_id])
-        # while True:
-        #     rows = cur.fetchmany(env.DB_READ_SIZE)
-        #     txs = [common.toTx(row) for row in rows]
-        #     r.json().mset(txs) # type: ignore
-        #     read_tx_id = txs[len(txs)-1][2]["id"]
-        #     if len(rows) < env.DB_READ_SIZE: break
 
-        # - import T table from PG -
-        # TODO make tokens table to PG and Load
-        # if env.USE_P_TABLE:
-        #     read_p_id = common.getSyncValue(cur, "read_p_id", 0)
-        #     cur.execute("SELECT * FROM pairs WHERE id > %s", [read_p_id])
-        #     while True:
-        #         rows = cur.fetchmany(env.DB_READ_SIZE)
-        #         pairs = [common.toP(row) for row in rows]
-        #         r.json().mset(pairs) # type: ignore
-        #         # r.hmset('H_T', {})    # TODO
-        #         read_p_id = pairs[len(pairs)-1][2]["id"]
-        #         for i in range(env.NUM_DURATIONS):
-        #             r.zadd(f"SS_PScore{i}", {t[2]["id"] : t[2][f"st{i}"]["score"] for t in pairs})
-        #         if len(rows) < env.DB_READ_SIZE: break
-        
-    
-    
-    # --- Init SS_BLK, SS_PR ---
-    if env.USE_PG:
-        # This is done in input_redis.py
-        # TODO load from PG
-        pass
-   
 
     # --- Create Indexes ---
     r.ft("IDX_T").create_index((TextField("$.name", as_name="name"),
@@ -196,7 +238,6 @@ def init_redis():
                         definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["T:"]))
     r.ft("IDX_P").create_index((NumericField("$.id", as_name="id"),
                                 # NumericField("$.price", as_name="price", sortable=True),
-                                
                                 TextField("$.symbol", as_name="symbol")),
                         definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["P:"]))
     r.ft("IDX_TX").create_index((NumericField("$.pid", as_name="pid"),
@@ -208,14 +249,13 @@ def init_redis():
                         definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["TX:"]))
     
     
-    common.setSyncValue(cur, "read_tx_id", read_tx_id)
+    common.setSyncValue(cur, "read_tx_id", 0)
     if env.USE_P_TABLE:
-        common.setSyncValue(cur, "read_p_id", read_p_id)
-
+        common.setSyncValue(cur, "read_p_id", 0)
     conn.commit()
     conn.close()
+    
     r.xadd("INIT_COMPLETE", {"date": str(datetime.datetime.now())})
-
     _b()
 
 if __name__ == "__main__":

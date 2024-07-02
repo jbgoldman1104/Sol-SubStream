@@ -34,14 +34,15 @@ def toP(row: tuple):
     # if env.USE_PG:
     #     return {"id":}
     # else:
-        return (f"P:{row[0]}", ".", {"id": row[0], "price": 0, "liq": 0, "mcap": 0, 
-                        "r": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0,
-                "st0": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
-                "st1": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
-                "st2": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
-                "st3": {"r": 0, "score": 0, "txns": 0, "buyTxns": 0, "sellTxns": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0, "d_price": 0,},
+        return (f"P:{row[0]}", ".", {"id": row[0], "price": 0, "liq": 0, "mcap": 0, "cSupply": 0, "tSupply": 0,
                 "baseMint": row[1], "quoteMint": row[2], "poolAddress": row[3], "created": row[4],
                 "baseSymbol":"", "quoteSymbol":"", "baseName": "", "quoteName": "", "dex": "", "dexImage":"", "outerProgram": "",
+                "holders": 0,
+                "r": 0, "txns": 0, "buys": 0, "sells": 0, "volume": 0, "buyVolume": 0, "sellVolume": 0, "makers": 0, "buyers": 0, "sellers": 0,
+                "r0": 0, "score0": 0, "txns0": 0, "buys0": 0, "sells0": 0, "volume0": 0, "buyVolume0": 0, "sellVolume0": 0, "makers0": 0, "buyers0": 0, "sellers0": 0, "d_price0": 0,
+                "r1": 0, "score1": 0, "txns1": 0, "buys1": 0, "sells1": 0, "volume1": 0, "buyVolume1": 0, "sellVolume1": 0, "makers1": 0, "buyers1": 0, "sellers1": 0, "d_price1": 0,
+                "r2": 0, "score2": 0, "txns2": 0, "buys2": 0, "sells2": 0, "volume2": 0, "buyVolume2": 0, "sellVolume2": 0, "makers2": 0, "buyers2": 0, "sellers2": 0, "d_price2": 0,
+                "r3": 0, "score3": 0, "txns3": 0, "buys3": 0, "sells3": 0, "volume3": 0, "buyVolume3": 0, "sellVolume3": 0, "makers3": 0, "buyers3": 0, "sellers3": 0, "d_price3": 0,
                 })
 
 def getPSymbols(r, p):
@@ -70,7 +71,7 @@ def order(mint: str):
 
 def toTx(cur, r, row: tuple):
     if env.USE_PG:
-        assert len(row) == 16
+        assert len(row) == 19
         swap = order(row[7]) < order(row[8])
         baseMint = row[8] if swap else row[7]
         quoteMint = row[7] if swap else row[8]
@@ -91,11 +92,6 @@ def toTx(cur, r, row: tuple):
                                       "pid": poolToId(cur, r, row[6], f'{baseMint}/{quoteMint}'), "type": type, "price": 0,
                                       })
 
-def rp():
-    return f'T{rdi(0, env.NTEST-1)}'
-
-def rtx():
-    return f'{rdi(1, 0xFFFF)}'
 
 def fetchOneValue(cur, sql: str, params: list = []):
     cur.execute(sql, [])
@@ -109,24 +105,6 @@ def getSyncValue(cur, field: str, defaultValue: Any):
 def setSyncValue(cur, field: str, value: Any):
     cur.execute(f'UPDATE sync set "{field}" = %s', [value])
     return True
-
-def insertP(cur, newT):
-    cur.execute(f'''
-                INSERT INTO tokens("id", "price", "liq", "mcap", "r", 
-                "r0", "score0", "txns0", "volume0", "makers0", d_price0
-                "r1", "score1", "txns1", "volume1", "makers1", d_price1
-                "r2", "score2", "txns2", "volume2", "makers2", d_price2
-                "r3", "score3", "txns3", "volume3", "makers3", d_price3
-                ") 
-    VALUES (%s,%s,%s,%s,%s, %s, %s, %s, %s, %s, %s,%s,%s,%s,%s, %s, %s, %s, %s, %s,%s,%s,%s,%s,%s, %s, %s, %s, %s, %s, )', 
-            newT["id"], newT["price"], newT["liq"], newT["mcap"],
-            newT["st0"]["r"], newT["st0"]["score"], newT["st0"]["txns"], newT["st0"]["volume"], newT["st0"]["makers]"], newT["st0"]["d_price"],
-            newT["st1"]["r"], newT["st1"]["score"], newT["st1"]["txns"], newT["st1"]["volume"], newT["st1"]["makers]"], newT["st1"]["d_price"],
-            newT["st2"]["r"], newT["st2"]["score"], newT["st2"]["txns"], newT["st2"]["volume"], newT["st2"]["makers]"], newT["st2"]["d_price"],
-            newT["st3"]["r"], newT["st3"]["score"], newT["st3"]["txns"], newT["st3"]["volume"], newT["st3"]["makers]"], newT["st3"]["d_price"],
-            newT["symbol"]
-            )''')
-
 
 fileT = None
 def writeT(meta: dict):
@@ -152,14 +130,18 @@ def writeFailedT(id, mint):
         fileFailedT.write('\n')
     # fileFailedT.close()
 
+def toW(row: tuple):
+    return (f'W:{row[0]}', ".", {"id": row[0], "address": row[1]})
+
 def toD(row: tuple):
     return (f"D:{row[1]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": f'/images/dex/{row[3] if row[3] else "solana/solana.svg"}'})
 
 def toT(row: tuple|list):
     return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
-                                "created": row[6], "verified": row[7], "share": row[8],  "mint_authority": row[9], "supply": row[10], 
+                                "creators": row[6], "verified": row[7], "share": row[8],  "mint_authority": row[9], "supply": row[10], 
                                 "decimals": row[11], "supply_real": row[12], "is_initialized": row[13], "freeze_authority": row[14],
                                 "image": row[15], "description": row[16], "twitter": row[17], "website": row[18],
+                                "holders": 0, "created": 0,
                 })
 
 def defaultTValue(id, mint: str):
@@ -167,10 +149,19 @@ def defaultTValue(id, mint: str):
 
 def defaultT(id, mint: str):
     return toT(defaultTValue(id, mint))
-               
+
+def signerToId(r, address: str):
+    id = r.hget('H_S', address)
+    if not id:
+        id = r.hlen('H_S') + 1
+        r.hset('H_S', address, id)
+    else:
+        id = int(id.decode())
+    return id
+
 def mintToId(cur, r, mint: str):
     id = r.hget('H_T', mint)
-    if not id:
+    if not id:  # New Token!
         id = r.hlen('H_T') + 1
         # print(f"new mint {mint} => {id}")
         r.hset('H_T', mint, id)
@@ -178,6 +169,7 @@ def mintToId(cur, r, mint: str):
         # token_info.update_nft(cur, r, id, mint)
         # r.xadd('TOKEN_STREAM', {id: mint})
         r.lpush('L_TOKENS', f'{id},{mint}')
+        # r.zadd(f'SS_TRemain{id}', {id: 0})
         # TODO sync with PG
     else:
         id = int(id.decode())
@@ -216,7 +208,7 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         for i in range(env.NUM_DURATIONS):
             r.zadd(f"SS_PScore{i}",     {pid : 0})
             r.zadd(f"SS_PVolume{i}",    {pid : 0})
-            r.zadd(f"SS_PTxns{i}",        {pid : 0})
+            r.zadd(f"SS_PTxns{i}",      {pid : 0})
             r.zadd(f"SS_PDPrice{i}",    {pid : 0})
             r.zadd(f"SS_PMakers{i}",    {pid : 0})
             r.zadd(f"SS_PBuyers{i}",    {pid : 0})

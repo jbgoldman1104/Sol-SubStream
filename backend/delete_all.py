@@ -27,6 +27,10 @@ def delete_all():
     # --- Delete PG ---
     dropTable(cur, 'sync')
     dropTable(cur, 'trade')
+    dropTable(cur, 'pairs')
+    dropTable(cur, 'tokens')
+    dropTable(cur, 'wallets')
+
     conn.commit()
     
     # --- Delete Saved Redis Dump Files ---
