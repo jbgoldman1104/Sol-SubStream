@@ -28,8 +28,9 @@ def delete_all():
     dropTable(cur, 'sync')
     dropTable(cur, 'trade')
     dropTable(cur, 'pairs')
-    dropTable(cur, 'tokens')
     dropTable(cur, 'wallets')
+    # dropTable(cur, 'tokens')
+    # dropTable(cur, 'dexes')
 
     conn.commit()
     

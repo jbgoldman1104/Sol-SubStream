@@ -194,13 +194,20 @@ def init_redis():
     if not bool(cur.rowcount):
         cur.execute("""
             CREATE TABLE wallets (
-                "id" INT PRIMARY KEY,
-                "address" VARCHAR(45)
-                
+                "wid" INT,
+                "address" VARCHAR(45),
+                "tid" INT,
+                "buy" float8,
+                "sell" float8,
+                "remain" float8,
+                "buyUSD" float8,
+                "sellUSD" float8,
+                "lastTx" INT,
+                CONSTRAINT "wid_tid" UNIQUE ("wid", "tid")
                 )
             """)
     
-    # - wallets -
+    # - dexes -
     cur.execute(qExists, ('dexes',))
     if not bool(cur.rowcount):
         cur.execute("""

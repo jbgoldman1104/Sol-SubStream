@@ -30,7 +30,7 @@ async def query_send(ns, data, payload):
         
 async def update_thread():
         print('-- input_redis process started. --')
-        show_time = False
+        __ = True
     # try:
         r = common.connect_redis()
         conn = common.connect_db()
@@ -78,51 +78,46 @@ async def update_thread():
                 # r.json().mset(new_txs) # type: ignore
                 read_tx_id = new_txs[len(new_txs)-1][2]["id"]
                 
-                t_start_ = datetime.datetime.now()
-                common.setSyncValue(cur, "read_tx_id", read_tx_id)
-                t_end_ = datetime.datetime.now()
-                t_end1 += t_end_ - t_start_
-                # print(t_end_ - t_start_)
-                
             synced_now = new_txs[len(new_txs) - 1][2]['blockTime']
 
             # --- Block's TX ids --- Checked
             # assert len(new_txs) > 0
-            if show_time: _b('1')
+            w_update = []
+            new_txs_sel = []
+            if __: _b('1')
             for tx in new_txs:
                 if tx[2]['instructionType'] != "Liquidity":
                     if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
                         solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
                     tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
                     blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
+                    new_txs_sel.append(tx)
+                    
+                    wid = common.signerToId(r, tx[2]['signer'])
+                    tid = common.mintToId(cur, r, tx[2]['baseMint'])
+                    amount = abs(tx[2]['baseAmount'])
+                    volume = amount * tx[2]['price']
+                    if tx[2]['type'] == "Buy":
+                        w_update.append((wid, tx[2]['signer'], tid,     amount, 0, amount,    volume, 0, tx[2]['id']))
+                    else:
+                        w_update.append((wid, tx[2]['signer'], tid,     0, amount, -amount,    0, volume, tx[2]['id']))
+                   
 
-            # -TODO Sync with PG
-            input_pg.update_txs(cur, new_txs)
             
             # TODO lifetime, Only Hot Tx
             if new_txs:
                 r.json().mset(new_txs) # type: ignore
             r.zadd('SS_BLK', { blk_value: now })
-            if show_time: _b()
-
-            if show_time: _b('2')
-            # --- Filter Swap Transactions ---
-            new_txs_sel = []
-            for tx in new_txs:
-                # if r.sismember('S_C', common.poolToId(cur, r, tx[2]['poolAddress'], f'{tx[2]["baseMint"]}/{tx[2]["quoteMint"]}')):
-                if tx[2]['instructionType'] != 'Liquidity':
-                    new_txs_sel.append(tx)
-            if show_time: _b()
-
+            if __: _b()
 
             # --- TS_i ---
-            if show_time: _b('3')
+            if __: _b('3')
             r.ts().madd([(f'TS_P:{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs_sel])
-            r.ts().madd([(f'TS_V:{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
-            if show_time: _b()
+            # r.ts().madd([(f'TS_V:{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
+            if __: _b()
 
             # --- Recent and Old Read Count ---
-            if show_time: _b('4')
+            if __: _b('4')
             new_r_pids = r.zrangebyscore('SS_PR', prev, now) # for +
             new_r_pids = [item.decode() for item in new_r_pids] # type: ignore
             
@@ -134,16 +129,16 @@ async def update_thread():
             replace_pids_key = [f'P:{t}' for t in replace_pids]
             t_values = r.json().mget(replace_pids_key, ".")
 
-            p_replace = {}
+            p_update = {}
             for i in range(len(replace_pids_key)):
                 if t_values[i]:
-                    p_replace[replace_pids_key[i]] = t_values[i]
+                    p_update[replace_pids_key[i]] = t_values[i]
                 else:
                     pass
-            if show_time: _b()
+            if __: _b()
             
             # -- Apply for new txs (TODO: Score, Volume, Makers Algorithm) --
-            if show_time: _b('5')
+            if __: _b('5')
             aa = 0
             bb = 0
             cc = 0
@@ -151,26 +146,38 @@ async def update_thread():
                 pid = tx[2]["pid"]
                 p = f'P:{pid}' # type: ignore
                 if tx[2]['instructionType'] == 'Liquidity':
-                    p_replace[p]['price'] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
-                    if tx[2]['type'] == 'Buy':
-                        p_replace[p]['tSupply'] = p_replace[p]['tSupply'] +  tx[2]["baseAmount"]
-                    elif tx[2]['type'] == 'Sell':
-                        p_replace[p]['tSupply'] = p_replace[p]['tSupply'] -  tx[2]["baseAmount"]
+                    p_update[p]['price'] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
+                    if tx[2]['type'] == 'Add':
+                        p_update[p]['tSupply'] += tx[2]["baseAmount"]
+                    elif tx[2]['type'] == 'Remove':
+                        p_update[p]['tSupply'] -= tx[2]["baseAmount"]
+                    p_update[p]['cSupply'] = p_update[p]['tSupply'] -  tx[2]["baseReserve"]
                     continue
                 
-                p_replace[p]['price'] = tx[2]['price']
-                p_replace[p]['liq'] = tx[2]["quoteReserve"] * 2
-                p_replace[p]['mcap'] = (p_replace[p]['tSupply'] or 1e9) * p_replace[p]['price']  # TODO with T:*
+                p_update[p]['price'] = tx[2]['price']
+                p_update[p]['liq'] = tx[2]["quoteReserve"] * 2
+                p_update[p]['mcap'] = (p_update[p]['tSupply'] or 1e9) * p_update[p]['price']  # TODO with T:*
                 
-                p_replace[p]['volume'] = p_replace[p]['volume'] + tx[2]['price'] * abs(tx[2]['baseAmount'])
-                if p_replace[p]['volume'] < 0:
+                volume = tx[2]['price'] * abs(tx[2]['baseAmount'])
+                p_update[p]['volume'] += volume
+                p_update[p]['txns'] += 1
+
+                if tx[2]['type'] == 'Buy':
+                    p_update[p]['buyVolume'] += volume
+                    p_update[p]['buys'] += 1
+                elif tx[2]['type'] == 'Sell':
+                    p_update[p]['sellVolume'] += volume
+                    p_update[p]['sells'] += 1
+
+
+                if p_update[p]['volume'] < 0:
                     aaaa = 1
 
                 # -- Make Txns, Makers, Buyers, Sellers tree --
                 t = common.now()
-                r.zadd(f'SS_PVolume_Ref{pid}', {p_replace[p]['volume']: tx[2]['blockTime']})
-                r.zadd(f'SS_PBuyVolume_Ref{pid}', {p_replace[p]['buyVolume']: tx[2]['blockTime']})
-                r.zadd(f'SS_PSellVolume_Ref{pid}', {p_replace[p]['sellVolume']: tx[2]['blockTime']})
+                r.zadd(f'SS_PVolume_Ref{pid}', {p_update[p]['volume']: tx[2]['blockTime']})
+                r.zadd(f'SS_PBuyVolume_Ref{pid}', {p_update[p]['buyVolume']: tx[2]['blockTime']})
+                r.zadd(f'SS_PSellVolume_Ref{pid}', {p_update[p]['sellVolume']: tx[2]['blockTime']})
                 r.zadd(f'SS_PTxns_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
                 r.zadd(f'SS_PMakers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 if tx[2]['type'] == 'Buy':
@@ -179,22 +186,23 @@ async def update_thread():
                 else:
                     r.zadd(f'SS_PSells_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
                     r.zadd(f'SS_PSellers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                
                 aa += common.now() - t
                 
                 # -- Assert dex info --
                 t = common.now()
-                if not p_replace[p]['dex']:
-                    p_replace[p]['outerProgram'] = tx[2]['outerProgram']
+                if not p_update[p]['dex']:
+                    p_update[p]['outerProgram'] = tx[2]['outerProgram']
                     dex = r.json().get(f'D:{tx[2]["outerProgram"]}')
                     if dex:
-                        p_replace[p]['dex'] = dex['name']
-                        p_replace[p]['dexImage'] = dex['image']
+                        p_update[p]['dex'] = dex['name']
+                        p_update[p]['dexImage'] = dex['image']
                 bb += common.now() - t
             print(f'aa: {aa}, bb: {bb}')
-            if show_time: _b()
+            if __: _b()
 
             # -- Calculate Pair Statistics --
-            if show_time: _b('6')
+            if __: _b('6')
             aa = 0
             bb = 0
             cc = 0
@@ -207,55 +215,60 @@ async def update_thread():
                     # p_replace[p][f'makers{i}'] = p_replace[p][f'txns{i}']   # TODO
                     t = common.now()
                     prevPrice = (r.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1]
-                    p_replace[p][f'd_price{i}'] = (p_replace[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
+                    p_update[p][f'd_price{i}'] = (p_update[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
                     aa += common.now() - t
 
                     t = common.now()
                     val = r.zrevrangebyscore(f'SS_PVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
-                    p_replace[p][f'volume{i}'] = p_replace[p]['volume'] - float(val)
+                    p_update[p][f'volume{i}'] = p_update[p]['volume'] - float(val)
                     val = r.zrevrangebyscore(f'SS_PBuyVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
-                    p_replace[p][f'fbuyVolume{i}'] = p_replace[p]['buyVolume'] - float(val)
+                    p_update[p][f'buyVolume{i}'] = p_update[p]['buyVolume'] - float(val)
                     val = r.zrevrangebyscore(f'SS_PSellVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
-                    p_replace[p][f'fsellVolume{i}'] = p_replace[p]['sellVolume'] - float(val)
+                    p_update[p][f'sellVolume{i}'] = p_update[p]['sellVolume'] - float(val)
                     bb += common.now() - t
 
                     t = common.now()
-                    p_replace[p][f'txns{i}'] = r.zcount(f'SS_PTxns_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_replace[p][f'buys{i}'] = r.zcount(f'SS_PBuys_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_replace[p][f'sells{i}'] = r.zcount(f'SS_PSells_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'txns{i}'] = r.zcount(f'SS_PTxns_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'buys{i}'] = r.zcount(f'SS_PBuys_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'sells{i}'] = r.zcount(f'SS_PSells_Ref{pid}', synced_now - env.DURATION[i], synced_now)
                     
-                    p_replace[p][f'makers{i}'] = r.zcount(f'SS_PMakers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_replace[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_replace[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'makers{i}'] = r.zcount(f'SS_PMakers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
                     cc += common.now() - t
+                p_update[p][f'makers'] = r.zcount(f'SS_PMakers_Ref{pid}', "-inf", "+inf")
+                p_update[p][f'buyers'] = r.zcount(f'SS_PBuyers_Ref{pid}', "-inf", "+inf")
+                p_update[p][f'sellers'] = r.zcount(f'SS_PSellers_Ref{pid}', "-inf", "+inf")
+                # TODO
+                # p_update[p][f'holders'] = r.zcount(f'SS_PMakers_Ref{pid}', "0", "+inf")
             print(f'aa: {aa}, bb: {bb}, cc: {cc}')
-            if show_time: _b()
+            if __: _b()
 
             # -- Apply for recent --
-            if show_time: _b('7')
+            if __: _b('7')
             for pid in new_r_pids: # type: ignore
                 p = f'P:{pid}'
-                p_replace[p]['r'] += 1
+                p_update[p]['r'] += 1
                 for i in range(env.NUM_DURATIONS):
-                    p_replace[p][f'r{i}'] += 1
-            if show_time: _b()
+                    p_update[p][f'r{i}'] += 1
+            if __: _b()
            
             # -- Calculate score --
-            if show_time: _b('8')
+            if __: _b('8')
             for i in range(env.NUM_DURATIONS):
-                for p in p_replace.keys():
-                    d_price = p_replace[p][f'd_price{i}'] + 1.0
+                for p in p_update.keys():
+                    d_price = p_update[p][f'd_price{i}'] + 1.0
                     d_price_affect = d_price if d_price > 1 else 1 # if d_price == 0 else 1 / d_price
-                    score = p_replace[p][f'txns{i}'] / 10000 * p_replace[p][f'volume{i}'] / 10000 * d_price_affect
-                    score *= 1.0 / (common.now() + 1 - p_replace[p]['created'])
+                    score = p_update[p][f'txns{i}'] / 10000 * p_update[p][f'volume{i}'] / 10000 * d_price_affect
+                    score *= 1.0 / (common.now() + 1 - p_update[p]['created'])
                     # score = p_replace[p][f'volume{i}']
-                    p_replace[p][f'score{i}'] = score    # TODO score algorithm
+                    p_update[p][f'score{i}'] = score    # TODO score algorithm
             
-            r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_replace.values()])
-            if show_time: _b()
+            r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_update.values()])
+            if __: _b()
             # aaa= [(f'P:{p["id"]}', ".", p) for p in p_replace.values()]
             # for a in aaa:
             #     r.json().mset([a])
@@ -263,30 +276,30 @@ async def update_thread():
             
             
             # -- For Query Result Sort --
-            if show_time: _b('9')
-            r.zadd(f'SS_PPrice',    {p['id'] : p['price'] for p in p_replace.values()})
-            r.zadd(f'SS_PLiq',      {p['id'] : p['liq'] for p in p_replace.values()})
-            r.zadd(f'SS_PMcap',     {p['id'] : p['mcap'] for p in p_replace.values()})
+            if __: _b('9')
+            r.zadd(f'SS_PPrice',    {p['id'] : p['price'] for p in p_update.values()})
+            r.zadd(f'SS_PLiq',      {p['id'] : p['liq'] for p in p_update.values()})
+            r.zadd(f'SS_PMcap',     {p['id'] : p['mcap'] for p in p_update.values()})
             for i in range(env.NUM_DURATIONS):
-                r.zadd(f'SS_PScore{i}',     {p['id'] : p[f'score{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PVolume{i}',    {p['id'] : p[f'volume{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PTxns{i}',      {p['id'] : p[f'txns{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PDPrice{i}',    {p['id'] : p[f'd_price{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PMakers{i}',    {p['id'] : p[f'makers{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PBuyers{i}',    {p['id'] : p[f'buyers{i}'] for p in p_replace.values()})
-                r.zadd(f'SS_PSellers{i}',   {p['id'] : p[f'sellers{i}'] for p in p_replace.values()})
-            if show_time: _b()
+                r.zadd(f'SS_PScore{i}',     {p['id'] : p[f'score{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PVolume{i}',    {p['id'] : p[f'volume{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PTxns{i}',      {p['id'] : p[f'txns{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PDPrice{i}',    {p['id'] : p[f'd_price{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PMakers{i}',    {p['id'] : p[f'makers{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PBuyers{i}',    {p['id'] : p[f'buyers{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PSellers{i}',   {p['id'] : p[f'sellers{i}'] for p in p_update.values()})
+            if __: _b()
 
 
             # TODO sync with PG
-            if show_time: _b('10')
+            if __: _b('10')
             conn.commit()
-            if show_time: _b()
+            if __: _b()
             
             r.lpush('L_UPDATED', f'{common.now()}')
 
             # --- Send TXS_DATA ---
-            if show_time: _b('11')
+            if __: _b('11')
             payload = {}
             for i in range(len(new_txs)):
                 tx = new_txs[len(new_txs) - i - 1][2]
@@ -294,7 +307,28 @@ async def update_thread():
                 if pool not in payload:
                     payload[pool] = []
                 payload[pool].append(tx)
-            if show_time: _b()
+            if __: _b()
+            
+            
+            # -- finished updating one period --
+            if __: _b('save db')
+            # -TODO Sync with PG-
+            input_pg.update_txs(cur, new_txs)            # insert
+            input_pg.write_pairs(cur, p_update)         # insert/update
+            input_pg.update_wallets(cur, w_update)      # insert/get + update
+            # input_pg.write_tokens(cur, )
+            # 
+            # # insert
+            if __: _b()
+            
+            
+            t_start_ = datetime.datetime.now()
+            common.setSyncValue(cur, "read_tx_id", read_tx_id)
+            t_end_ = datetime.datetime.now()
+            t_end1 += t_end_ - t_start_
+            # print(t_end_ - t_start_)
+            
+            
             
             tasks = []
             for ns in env.NSS:

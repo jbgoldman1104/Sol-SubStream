@@ -131,7 +131,8 @@ def writeFailedT(id, mint):
     # fileFailedT.close()
 
 def toW(row: tuple):
-    return (f'W:{row[0]}', ".", {"id": row[0], "address": row[1]})
+    return (f'W:{row[0]}', ".", {"wid": row[0], "address": row[1], "tid": row[2], "buy": row[3], "sell": row[4], "remain": row[5],
+                                 "buyUSD": row[6], "sellUSD": row[7], "lastTx": row[8]})
 
 def toD(row: tuple):
     return (f"D:{row[1]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": f'/images/dex/{row[3] if row[3] else "solana/solana.svg"}'})
@@ -150,6 +151,11 @@ def defaultTValue(id, mint: str):
 def defaultT(id, mint: str):
     return toT(defaultTValue(id, mint))
 
+def toW(row: tuple|list):
+    return (f"W:{row[0]}", ".", {"id": row[0], "address": row[1], "tid": row[2], "buy": row[3], "sell": row[4], "remain": row[5],
+                                "buyUSD": row[6], "sellUSD": row[7], "lastTx": row[8],
+                })
+    
 def signerToId(r, address: str):
     id = r.hget('H_S', address)
     if not id:
@@ -198,13 +204,13 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
         r.hset('H_P', pool, pid)
         split = pair.split('/')
         # r.hset('H_P2M', pool, pair)
-        newP = toP((f'{pid}', split[0], split[1], pool, now()))
+        newP = toP((pid, split[0], split[1], pool, nows()))
         r.json().mset([newP])
 
         # -- For Sorting --
-        r.zadd(f"SS_PPrice",   {pid : 0})
-        r.zadd(f"SS_PLiq",   {pid : 0})
-        r.zadd(f"SS_PMcap",   {pid : 0})
+        r.zadd(f"SS_PPrice",    {pid : 0})
+        r.zadd(f"SS_PLiq",      {pid : 0})
+        r.zadd(f"SS_PMcap",     {pid : 0})
         for i in range(env.NUM_DURATIONS):
             r.zadd(f"SS_PScore{i}",     {pid : 0})
             r.zadd(f"SS_PVolume{i}",    {pid : 0})
@@ -234,13 +240,13 @@ def poolToId(cur, r, pool: str, pair: str = "" ):
             r.ts().create(f'TS_PA:{pid}:{i}', retention_msecs=env.RP[i]*1000)
             r.ts().createrule(f'TS_P:{pid}', f'TS_PA:{pid}:{i}', aggregation_type="avg", bucket_size_msec=env.BD[i])
             # Count(Transations)
-            r.ts().create(f'TS_PT:{pid}:{i}', retention_msecs=env.RP[i]*1000)
-            r.ts().createrule(f'TS_P:{pid}', f'TS_PT:{pid}:{i}', aggregation_type="count", bucket_size_msec=env.BD[i])
+            # r.ts().create(f'TS_PT:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+            # r.ts().createrule(f'TS_P:{pid}', f'TS_PT:{pid}:{i}', aggregation_type="count", bucket_size_msec=env.BD[i])
             
-        r.ts().create(f'TS_V:{pid}', retention_msecs=env.DAY*1000)
-        for i in range(env.NUM_INTERVALS):
-            r.ts().create(f'TS_PV:{pid}:{i}', retention_msecs=env.RP[i]*1000)
-            r.ts().createrule(f'TS_V:{pid}', f'TS_PV:{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
+        # r.ts().create(f'TS_V:{pid}', retention_msecs=env.DAY*1000)
+        # for i in range(env.NUM_INTERVALS):
+        #     r.ts().create(f'TS_PV:{pid}:{i}', retention_msecs=env.RP[i]*1000)
+        #     r.ts().createrule(f'TS_V:{pid}', f'TS_PV:{pid}:{i}', aggregation_type="sum", bucket_size_msec=env.BD[i])
 
         baseId = mintToId(cur, r, split[0])
         quoteId = mintToId(cur, r, split[1])
