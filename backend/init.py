@@ -16,6 +16,11 @@ import json
 from redis.commands.search.field import (NumericField, TagField, TextField, )
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
+r = common.connect_redis()
+if env.USE_PG:
+    conn = common.connect_db()
+    cur = conn.cursor()
+        
 def importD(r, filename: str):
     print('-- init process started. --')
     
@@ -31,9 +36,10 @@ def importD(r, filename: str):
                     row = json.loads(line)
                     rows.append(common.toD(row))
                     # r.hset('H_D', row[1], row[0])
-                    if len(rows) >= 1000:
+                    if len(rows) >= 1:
                         print(f'D:{row[1]}')
-                        r.json().mset(rows)
+                        # r.json().mset(rows)
+                        input_pg.write_dexes(cur, rows)
                         rows = []
                 except Exception as e:
                     print("input file type error: " + str(e) + ":    " + line)
@@ -55,7 +61,8 @@ def importT(r, filename: str):
                     r.hset('H_T', row[1], row[0])
                     if len(rows) >= 1000:
                         print(f'T:{row[0]}')
-                        r.json().mset(rows)
+                        # r.json().mset(rows)
+                        input_pg.write_tokens(cur, rows)
                         rows = []
                 except Exception as e:
                     print("input file type error: " + str(e) + ":    " + line)
@@ -66,10 +73,7 @@ def importT(r, filename: str):
 
 
 def init_redis():
-    r = common.connect_redis()
-    if env.USE_PG:
-        conn = common.connect_db()
-        cur = conn.cursor()
+
     
     r.xtrim("INIT_COMPLETE", maxlen = 0)
     
@@ -140,17 +144,21 @@ def init_redis():
                 "mint" VARCHAR(45) NOT NULL,
                 "name" VARCHAR(50),
                 "symbol" VARCHAR(20),
-                "uri" VARCHAR(256),
+                "uri" TEXT,
                 "seller_fee_basis_points" float8,
-                "creators" VARCHAR(256),
-                "verified" VARCHAR(256),
-                "share" VARCHAR(256),
-                "mint_authority" VARCHAR(256),
+                "creators" VARCHAR(255),
+                "verified" VARCHAR(255),
+                "share" VARCHAR(255),
+                "mint_authority" VARCHAR(255),
                 "supply" float8,
-                "image" VARCHAR(256),
-                "description" VARCHAR(256),
-                "twitter" VARCHAR(256),
-                "website" VARCHAR(256),
+                "decimals" INT,
+                "supply_real" float8,
+                "is_initialized" BOOL,
+                "free_authority" VARCHAR(255),
+                "image" TEXT,
+                "description" TEXT,
+                "twitter" VARCHAR(255),
+                "website" TEXT,
                 
                 "holders" INT,
                 "created" INT
@@ -178,7 +186,7 @@ def init_redis():
                 "baseName" VARCHAR(50),
                 "quoteName" VARCHAR(50),
                 "dex" VARCHAR(45),
-                "dexImage" VARCHAR(256),
+                "dexImage" VARCHAR(255),
                 "outerProgram" VARCHAR(45),
                 "holders" INT,
                 "r" INT, "txns" INT, "buys" INT, "sells" INT, "volume" float8, "buyVolume" float8, "sellVolume" float8, "makers" INT, "buyers" INT, "sellers" INT,
@@ -221,17 +229,19 @@ def init_redis():
     conn.commit()
 
     # --------------------- Import Data From PG ---------------------
+    input_pg.read_txs(cur, r)
     input_pg.read_tokens(cur, r)
     input_pg.read_pairs(cur, r)
     input_pg.read_wallets(cur, r)
+    input_pg.read_dexes(cur, r)
     
 
     # --- Import D:, H_D ---
-    importD(r, env.FILENAME_D)
+    # importD(r, env.FILENAME_D)
 
     # --- Import T:, H_T ---
-    importT(r, env.FILENAME_T)
-    importT(r, env.FILENAME_FailedT)
+    # importT(r, env.FILENAME_T)
+    # importT(r, env.FILENAME_FailedT)
     
     
     # --- Import P:, SS_PScore ---

@@ -13,20 +13,25 @@ def update_txs(cur, txs):
                     UPDATE "trade" SET "pid" = %s, "type" = %s, "price" = %s WHERE "id" = %s
                     """, data)
 
-def read_txs():
+def read_txs(cur, r):
     pass
 
 token_columns = """
                 ("id", "mint", "name", "symbol", "uri", "seller_fee_basis_points", 
-                    "creators", "verified", "share", mint_authority", "supply", "image", "description", "twitter", "website", "holders", "created")
+                    "creators", "verified", "share", "mint_authority", "supply", "decimals", "supply_real", "is_initialized", "free_authority", 
+                    "image", "description", "twitter", "website", "holders", "created")
                 """
 def write_tokens(cur, rows):
-    data = [[v for v in row.values()] for row in rows.values()]
-    cur.executemany(f"""
-                    INSERT INTO "tokens" {token_columns}
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT("id") DO UPDATE SET {token_columns} = ROW(EXCLUDED.*)
-                    """, data)
+    try:
+        data = [[v for v in row[2].values()] for row in rows]
+        cur.executemany(f"""
+                        INSERT INTO "tokens" {token_columns}
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT("id") DO UPDATE SET {token_columns} = ROW(EXCLUDED.*)
+                        """, data)
+    except Exception as e:
+        print("sql error: " + str(e))
+        
                     
 def read_tokens(cur, r):
     cur.execute("SELECT * FROM tokens")
@@ -73,7 +78,7 @@ def read_wallets(cur, r):
         rows = cur.fetchmany(env.DB_READ_SIZE * 10)
         if not rows: break
         r.hmset('H_W', {row[1]: row[0] for row in rows})
-        r.json().mset([common.toW(row) for row in rows])
+        # r.json().mset([common.toW(row) for row in rows])
 
 wallet_columns = """
                 ("wid", "address", "tid", "buy", "sell", "remain", "buyUSD", "sellUSD", "lastTx") 
@@ -103,11 +108,14 @@ dex_columns = """
             ("id", "address", "name", "image")
             """
 def write_dexes(cur, rows):
-    data = [[v for v in row.values()] for row in rows.values()]
-    cur.executemany(f"""
-                    INSERT INTO "dexes" {dex_columns} VALUES (%s, %s, %s, %s)
-                    ON CONFLICT("id") DO UPDATE SET {dex_columns} = ROW(EXCLUDED.*)
-                    """, data)
+    try:
+        data = [[v for v in row[2].values()] for row in rows]
+        cur.executemany(f"""
+                        INSERT INTO "dexes" {dex_columns} VALUES (%s, %s, %s, %s)
+                        ON CONFLICT("id") DO UPDATE SET {dex_columns} = ROW(EXCLUDED.*)
+                        """, data)
+    except Exception as e:
+        print("sql error: " + str(e))
             
 def read_dexes(cur, r):
     cur.execute("SELECT * FROM dexes")
@@ -115,7 +123,7 @@ def read_dexes(cur, r):
         rows = cur.fetchmany(env.DB_READ_SIZE * 10)
         if not rows: break
         r.hmset('H_D', {row[1]: row[0] for row in rows})
-        r.json().mset([common.toW(row) for row in rows])
+        r.json().mset([common.toD(row) for row in rows])
 
 async def input_thread():
     while True:
