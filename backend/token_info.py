@@ -16,8 +16,12 @@ import asyncio
 import aiohttp
 
 import json
+import input_pg
 
 r = common.connect_redis()
+if env.USE_PG:
+    conn = common.connect_db()
+    cur = conn.cursor()
 #TODO: get your own solana rpc node
 #devnet
 solana_clients = [Client(env.API_KEY1), Client(env.API_KEY2)]
@@ -110,21 +114,25 @@ def get_nft(id, mint_key):
             uri_data["twitter"] if "twitter" in uri_data else None, 
             uri_data["website"] if "website" in uri_data else None )
 
-async def update_nft(id, mint):
+async def update_nft(cur, id, mint):
     # print(f"start token info: {mint}")
     meta = get_nft(id, mint)
 
+    tokens = []
     if meta:
         print(f'{meta[0]} - {meta[3]} : {meta[4]} => {meta[15]}') # type: ignore
         if meta[15] and meta[15].startswith("data:image/"):
             meta = list(meta)
             meta[15] = None     # TODO make thumbnail image to server
-        r.json().mset([common.toT(meta)])
+        tokens = [common.toT(meta)]
         # write to file
-        common.writeT(meta)
+        # common.writeT(meta)
     else:
         print(f"update_nft error: {id}: {mint}")
-        common.writeFailedT(id, mint)
+        tokens = [common.defaultT(id, mint)]
+        # common.writeFailedT(id, mint)
+    r.json().mset(tokens)
+    input_pg.write_tokens(cur, tokens)
     # r.lpop('L_TOKEN_REQUEST')
 
 
@@ -149,7 +157,7 @@ async def token_thread():
         # print(r.llen('L_TOKEN_REQUEST'))
         # while r.llen('L_TOKEN_REQUEST') > env.NUM_REQUESTS:
             # await asyncio.sleep(0.2)
-        tasks.append(asyncio.create_task(update_nft(int(split[0]), split[1])))
+        tasks.append(asyncio.create_task(update_nft(cur, int(split[0]), split[1])))
         # r.lpush('L_TOKEN_REQUEST', int(split[0]))
         # await temp
         remain = r.llen('L_TOKENS')
@@ -158,6 +166,7 @@ async def token_thread():
         while len(tasks) >= env.NUM_REQUESTS:
             await tasks[0]
             tasks.pop(0)
+        conn.commit()
 
 if __name__ == "__main__":
     asyncio.run(token_thread())

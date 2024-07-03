@@ -29,6 +29,9 @@ def write_tokens(cur, rows):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT("id") DO UPDATE SET {token_columns} = ROW(EXCLUDED.*)
                         """, data)
+        ggg = 1
+        sss = 2
+        eee = 3
     except Exception as e:
         print("sql error: " + str(e))
         

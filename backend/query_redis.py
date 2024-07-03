@@ -81,16 +81,16 @@ def get_pairs(pids):
 def query_st(duration: int = 0, skip: int = 0, limit: int = 100, sort: str = "score", sort_dir: str = "desc"):
     _b('query_st')
     
-    if sort == "score": set = f"SS_PScore{duration}"
+    if sort == "score": set = f"SS_PScore:{duration}"
     elif sort == "price": set = f"SS_PPrice"
     elif sort == "liq": set = "SS_PLiq"
     elif sort == "mcap": set = "SS_PMcap"
-    elif sort == "volume": set = f"SS_PVolume{duration}"
-    elif sort == "txns": set = f"SS_PTxns{duration}"
-    elif sort == "ratio": set = f"SS_PDPrice{duration}"
-    elif sort == "makers": set = f"SS_PMakers{duration}"
-    elif sort == "buyers": set = f"SS_PBuyers{duration}"
-    elif sort == "sellers": set = f"SS_PSellers{duration}"
+    elif sort == "volume": set = f"SS_PVolume:{duration}"
+    elif sort == "txns": set = f"SS_PTxns:{duration}"
+    elif sort == "ratio": set = f"SS_PDPrice:{duration}"
+    elif sort == "makers": set = f"SS_PMakers:{duration}"
+    elif sort == "buyers": set = f"SS_PBuyers:{duration}"
+    elif sort == "sellers": set = f"SS_PSellers:{duration}"
     else: return {}
         
     if sort_dir == "desc":
@@ -415,8 +415,8 @@ def search_pair(q: str = "", skip: int = 0, limit: int = 10):
             rlt = r.ft("IDX_T").search(query)
             tids = [json.loads(doc['json'])['id'] for doc in rlt.docs] # type: ignore
         for tid in tids:
-            # pids |= set(int(pid.decode()) for pid in r.smembers(f'S_TtoPs{tid}'))  #set(r.zrangebyscore('SS_TtoPs', tid, tid))
-            pids |= r.smembers(f'S_TtoPs{tid}')
+            # pids |= set(int(pid.decode()) for pid in r.smembers(f'S_TtoPs:{tid}'))  #set(r.zrangebyscore('SS_TtoPs', tid, tid))
+            pids |= r.smembers(f'S_TtoPs:{tid}')
 
     rlt = get_pairs(list(pids)[skip: skip+limit])
     _b()

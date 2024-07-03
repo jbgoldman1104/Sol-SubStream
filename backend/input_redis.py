@@ -30,9 +30,10 @@ async def query_send(ns, data, payload):
         
 async def update_thread():
         print('-- input_redis process started. --')
-        __ = True
+        __ = False
     # try:
         r = common.connect_redis()
+        pipe = r.pipeline()
         conn = common.connect_db()
         cur = conn.cursor()
 
@@ -50,7 +51,7 @@ async def update_thread():
         qcount = 0
         
         while True:
-            time.sleep(0.1)
+            time.sleep(0.2)
             
             t_start = datetime.datetime.now()
 
@@ -113,7 +114,7 @@ async def update_thread():
             # --- TS_i ---
             if __: _b('3')
             r.ts().madd([(f'TS_P:{tx[2]["pid"]}', tx[2]['blockTime'], tx[2]['price']) for tx in new_txs_sel])
-            # r.ts().madd([(f'TS_V:{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
+            r.ts().madd([(f'TS_V:{tx[2]["pid"]}', tx[2]['blockTime'], abs(tx[2]['baseAmount']) * tx[2]['price']) for tx in new_txs_sel])
             if __: _b()
 
             # --- Recent and Old Read Count ---
@@ -142,6 +143,8 @@ async def update_thread():
             aa = 0
             bb = 0
             cc = 0
+            
+            
             for tx in new_txs:
                 pid = tx[2]["pid"]
                 p = f'P:{pid}' # type: ignore
@@ -175,17 +178,17 @@ async def update_thread():
 
                 # -- Make Txns, Makers, Buyers, Sellers tree --
                 t = common.now()
-                r.zadd(f'SS_PVolume_Ref{pid}', {p_update[p]['volume']: tx[2]['blockTime']})
-                r.zadd(f'SS_PBuyVolume_Ref{pid}', {p_update[p]['buyVolume']: tx[2]['blockTime']})
-                r.zadd(f'SS_PSellVolume_Ref{pid}', {p_update[p]['sellVolume']: tx[2]['blockTime']})
-                r.zadd(f'SS_PTxns_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
-                r.zadd(f'SS_PMakers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                pipe.zadd(f'SS_PVolume_Ref:{pid}', {p_update[p]['volume']: tx[2]['blockTime']})
+                pipe.zadd(f'SS_PBuyVolume_Ref:{pid}', {p_update[p]['buyVolume']: tx[2]['blockTime']})
+                pipe.zadd(f'SS_PSellVolume_Ref:{pid}', {p_update[p]['sellVolume']: tx[2]['blockTime']})
+                pipe.zadd(f'SS_PTxns_Ref:{pid}', {tx[2]['id']: tx[2]['blockTime']})
+                pipe.zadd(f'SS_PMakers_Ref:{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 if tx[2]['type'] == 'Buy':
-                    r.zadd(f'SS_PBuys_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
-                    r.zadd(f'SS_PBuyers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                    pipe.zadd(f'SS_PBuys_Ref:{pid}', {tx[2]['id']: tx[2]['blockTime']})
+                    pipe.zadd(f'SS_PBuyers_Ref:{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 else:
-                    r.zadd(f'SS_PSells_Ref{pid}', {tx[2]['id']: tx[2]['blockTime']})
-                    r.zadd(f'SS_PSellers_Ref{pid}', {tx[2]['signer']: tx[2]['blockTime']})
+                    pipe.zadd(f'SS_PSells_Ref:{pid}', {tx[2]['id']: tx[2]['blockTime']})
+                    pipe.zadd(f'SS_PSellers_Ref:{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 
                 aa += common.now() - t
                 
@@ -198,7 +201,8 @@ async def update_thread():
                         p_update[p]['dex'] = dex['name']
                         p_update[p]['dexImage'] = dex['image']
                 bb += common.now() - t
-            print(f'aa: {aa}, bb: {bb}')
+            pipe.execute()
+            if __: print(f'aa: {aa}, bb: {bb}')
             if __: _b()
 
             # -- Calculate Pair Statistics --
@@ -206,6 +210,8 @@ async def update_thread():
             aa = 0
             bb = 0
             cc = 0
+            
+            read_data = []
             
             for pid in new_txs_pids:
                 p = f'P:{pid}'
@@ -219,32 +225,32 @@ async def update_thread():
                     aa += common.now() - t
 
                     t = common.now()
-                    val = r.zrevrangebyscore(f'SS_PVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = r.zrevrangebyscore(f'SS_PVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
                     p_update[p][f'volume{i}'] = p_update[p]['volume'] - float(val)
-                    val = r.zrevrangebyscore(f'SS_PBuyVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = r.zrevrangebyscore(f'SS_PBuyVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
                     p_update[p][f'buyVolume{i}'] = p_update[p]['buyVolume'] - float(val)
-                    val = r.zrevrangebyscore(f'SS_PSellVolume_Ref{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = r.zrevrangebyscore(f'SS_PSellVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
                     val = val[0].decode() if val else 0
                     p_update[p][f'sellVolume{i}'] = p_update[p]['sellVolume'] - float(val)
                     bb += common.now() - t
 
                     t = common.now()
-                    p_update[p][f'txns{i}'] = r.zcount(f'SS_PTxns_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'buys{i}'] = r.zcount(f'SS_PBuys_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'sells{i}'] = r.zcount(f'SS_PSells_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'txns{i}'] = r.zcount(f'SS_PTxns_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'buys{i}'] = r.zcount(f'SS_PBuys_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'sells{i}'] = r.zcount(f'SS_PSells_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
                     
-                    p_update[p][f'makers{i}'] = r.zcount(f'SS_PMakers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'makers{i}'] = r.zcount(f'SS_PMakers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
                     cc += common.now() - t
-                p_update[p][f'makers'] = r.zcount(f'SS_PMakers_Ref{pid}', "-inf", "+inf")
-                p_update[p][f'buyers'] = r.zcount(f'SS_PBuyers_Ref{pid}', "-inf", "+inf")
-                p_update[p][f'sellers'] = r.zcount(f'SS_PSellers_Ref{pid}', "-inf", "+inf")
+                p_update[p][f'makers'] = r.zcount(f'SS_PMakers_Ref:{pid}', "-inf", "+inf")
+                p_update[p][f'buyers'] = r.zcount(f'SS_PBuyers_Ref:{pid}', "-inf", "+inf")
+                p_update[p][f'sellers'] = r.zcount(f'SS_PSellers_Ref:{pid}', "-inf", "+inf")
                 # TODO
                 # p_update[p][f'holders'] = r.zcount(f'SS_PMakers_Ref{pid}', "0", "+inf")
-            print(f'aa: {aa}, bb: {bb}, cc: {cc}')
+            if __: print(f'aa: {aa}, bb: {bb}, cc: {cc}')
             if __: _b()
 
             # -- Apply for recent --
@@ -281,13 +287,13 @@ async def update_thread():
             r.zadd(f'SS_PLiq',      {p['id'] : p['liq'] for p in p_update.values()})
             r.zadd(f'SS_PMcap',     {p['id'] : p['mcap'] for p in p_update.values()})
             for i in range(env.NUM_DURATIONS):
-                r.zadd(f'SS_PScore{i}',     {p['id'] : p[f'score{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PVolume{i}',    {p['id'] : p[f'volume{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PTxns{i}',      {p['id'] : p[f'txns{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PDPrice{i}',    {p['id'] : p[f'd_price{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PMakers{i}',    {p['id'] : p[f'makers{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PBuyers{i}',    {p['id'] : p[f'buyers{i}'] for p in p_update.values()})
-                r.zadd(f'SS_PSellers{i}',   {p['id'] : p[f'sellers{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PScore:{i}',     {p['id'] : p[f'score{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PVolume:{i}',    {p['id'] : p[f'volume{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PTxns:{i}',      {p['id'] : p[f'txns{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PDPrice:{i}',    {p['id'] : p[f'd_price{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PMakers:{i}',    {p['id'] : p[f'makers{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PBuyers:{i}',    {p['id'] : p[f'buyers{i}'] for p in p_update.values()})
+                r.zadd(f'SS_PSellers:{i}',   {p['id'] : p[f'sellers{i}'] for p in p_update.values()})
             if __: _b()
 
 
