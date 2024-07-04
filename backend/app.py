@@ -169,12 +169,17 @@ async def search_st(q: str = "", skip: int = 0, limit: int = 20):
     return query_redis.search_pair(q, skip, limit)
     
 @app.get("/api/tx/query")
-async def read_tx(pool: str = "", sort: str = "blockTime", direction: str = "desc", skip: int = 0, limit: int  = 20):
-    return query_redis.query_tx_historical(pool, sort, direction, skip, limit)
+async def read_tx(address: str = "", sort: str = "blockTime", direction: str = "desc", skip: int = 0, limit: int  = 20):
+    return query_redis.query_tx_historical(address, sort, direction, skip, limit)
 
 @app.get("/api/tx/chart")
 async def read_chart(address: str = "", address_type="pair", type="15m", time_from: int = 0, time_to: int = 0, interval: int = 0):
     return query_redis.query_price_historical(address, address_type, type, time_from, time_to)
+
+@app.get("/api/tx/holders")
+async def read_holders(address: str = "", address_type="pair", skip: int = 0, limit: int = 10):
+    return query_redis.query_holders(address, address_type, skip, limit)
+
 
 app.mount("/", StaticFiles(directory=str(Path(BASE_DIR, 'static'))), name="static")
 

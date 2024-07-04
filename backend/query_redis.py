@@ -4,6 +4,7 @@ import query_pg
 from redis.commands.search.query import Query
 import json
 from benchmark import _b
+import input_pg
 
 r = common.connect_redis()
 conn = common.connect_db()
@@ -33,13 +34,15 @@ def query_wrap(ns, js, payload = None):
     elif js['type'] == 'SUBSCRIBE_PAIRS_SEARCH':
         return search_pair(param['search'], param['skip'], param['limit'])
     elif js['type'] == 'TXS_DATA_HISTORICAL':
-        return query_tx_historical(param['pool'], param['filter'], param['skip'], param['limit'])
+        return query_tx_historical(param['address'], param['filter'], param['skip'], param['limit'])
     elif js['type'] == 'TXS_DATA_REALTIME':
-        return query_tx_realtime(payload, param['pool'], param['filter'])
+        return query_tx_realtime(payload, param['address'], param['filter'])
     elif js['type'] == 'PRICE_DATA_HISTORICAL':
         return query_price_historical(param['address'], param['address_type'], param['type'], param['time_from'], param['time_to'])
     elif js['type'] == 'SUBSCRIBE_PRICE':
         return query_price_realtime(param['address'], param['address_type'], param['type'])
+    elif js['type'] == 'HOLDERS_DATA':
+        return query_holders(param['address'], param['address_type'], param['skip'], param['limit'])
     
    
 def get_pairs(pids):
@@ -243,6 +246,7 @@ def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, li
        
     # TODO mintAddress.
     split = common.getMintAddresses(r, pid)
+    if not split: return {}
     tids = r.hmget('H_T', [split[0], split[1]])
     tids = [item.decode() for item in tids] # type: ignore
     ts = r.json().mget([f'T:{tids[0]}', f'T:{tids[1]}'], ".") # type: ignore
@@ -422,10 +426,58 @@ def search_pair(q: str = "", skip: int = 0, limit: int = 10):
     _b()
     return rlt
 
+def custom_sort_function(item):
+    return item[2]['remain']
+
+def query_holders(address: str = "", address_type = "pair", skip: int = 0, limit: int = 10):
+    _b('query_holders')
+    if not address: return {}
+    pid = r.hget('H_P', address) #common.poolToId(cur, r, q)
+    if not pid: return {}
+    pid = pid.decode()
+    pair = r.json().get(f"P:{pid}")
+    tSupply = pair['tSupply']
+    if not tSupply: tSupply = 1e9
+    split = common.getMintAddresses(r, pid)
+    if not split: return {}
+    tid = common.mintToId(cur, r, split[0])
+    if not tid: return {}
+    wids = r.zrevrange(f'SS_THolders_Ref:{tid}', skip, limit)
+    if not wids: return {}
+    wids = [wid.decode() for wid in wids]
+    rows = input_pg.get_holders(cur, tid, wids, skip, limit)
+    rows.sort(key=custom_sort_function)
+    rows.reverse()
+    
+    percent_sum = 0
+    amount_sum = 0
+    data = []
+    for row in rows:
+        if row[2]['remain'] <= 0.0000001: continue
+        percent = row[2]['remain'] / tSupply * 100
+        value = row[2]['remain'] * pair['price']
+        percent_sum += percent
+        amount_sum += row[2]['remain']
+        data.append({'address': row[2]['address'], 'percent': percent, 'amount': row[2]['remain'], 'value': value})
+    
+    if not data: return {}
+    
+    if percent_sum < 99.99999:
+        data.append({'address': 'Others', 'percent': 100 - percent_sum, 'amount': tSupply - amount_sum, 
+                     'value': (tSupply - amount_sum) * pair['price']})
+
+    rlt = { 'type': 'HOLDERS_DATA',
+            'tSupply': tSupply,
+            'price': pair['price'],
+            'data': data}
+    _b()
+    return rlt
+
 if __name__ == "__main__":
     # print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
     # print(common.getMintAddresses(r, '1'))
     # print(query_chart('A1BBtTYJd4i3xU8D6Tc2FzU6ZN4oXZWXKZnCxwbHXr8x', 1718629188, 1718727888, 2))
     # print(query_chart('2mCaQrTySFYQtmrKxQxMHBdqHnm2mTx9hMRUbFuNz4Jx', 0, 0, 2))
     # print(query_tx('4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg'))
+    print(query_holders('eQV2ucvHe1MFu7gG9kCJLPPzHPdXcq4auLNanz6ZXBQ', 'pair', 0, 10))
     pass

@@ -29,13 +29,18 @@ def write_tokens(cur, rows):
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT("id") DO UPDATE SET {token_columns} = ROW(EXCLUDED.*)
                         """, data)
-        ggg = 1
-        sss = 2
-        eee = 3
     except Exception as e:
         print("sql error: " + str(e))
-        
-                    
+
+def update_tokens(cur, rows):
+    try:
+        data = [(rows[tid]['holders'], tid) for tid in rows]
+        cur.executemany("""
+                        UPDATE "tokens" SET "holders" = %s WHERE "id" = %s
+                        """, data)
+    except Exception as e:
+        print("sql error: " + str(e))
+
 def read_tokens(cur, r):
     cur.execute("SELECT * FROM tokens")
     while True:
@@ -106,6 +111,12 @@ def update_wallets(cur, rows):
                         "sellUSD" = "wallets"."sellUSD" + EXCLUDED."sellUSD"
                     """, rows)
 
+def get_holders(cur, tid, wids, skip, limit):
+    wids_array = '{' + ','.join(map(str, wids)) + '}'
+    cur.execute("SELECT * FROM wallets WHERE tid = %s AND \"wid\" = ANY(%s) OFFSET %s LIMIT %s", (tid, wids_array, skip, limit))
+    rows = cur.fetchmany(limit)
+    if not rows: return []
+    return [common.toW(row) for row in rows]
    
 dex_columns = """
             ("id", "address", "name", "image")

@@ -30,7 +30,7 @@ async def query_send(ns, data, payload):
         
 async def update_thread():
         print('-- input_redis process started. --')
-        __ = False
+        __ = True
     # try:
         r = common.connect_redis()
         pipe = r.pipeline()
@@ -89,7 +89,8 @@ async def update_thread():
             for tx in new_txs:
                 if tx[2]['instructionType'] != "Liquidity":
                     if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
-                        solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
+                        newSolPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
+                        if newSolPrice / solPrice < 10: solPrice = newSolPrice
                     tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
                     blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
                     new_txs_sel.append(tx)
@@ -100,9 +101,10 @@ async def update_thread():
                     volume = amount * tx[2]['price']
                     if tx[2]['type'] == "Buy":
                         w_update.append((wid, tx[2]['signer'], tid,     amount, 0, amount,    volume, 0, tx[2]['id']))
+                        pipe.zincrby(f'SS_THolders_Ref:{tid}', amount, wid)
                     else:
                         w_update.append((wid, tx[2]['signer'], tid,     0, amount, -amount,    0, volume, tx[2]['id']))
-                   
+                        pipe.zincrby(f'SS_THolders_Ref:{tid}', -amount, wid)
 
             
             # TODO lifetime, Only Hot Tx
@@ -130,6 +132,7 @@ async def update_thread():
             replace_pids_key = [f'P:{t}' for t in replace_pids]
             t_values = r.json().mget(replace_pids_key, ".")
 
+            t_update = {}
             p_update = {}
             for i in range(len(replace_pids_key)):
                 if t_values[i]:
@@ -144,7 +147,6 @@ async def update_thread():
             bb = 0
             cc = 0
             
-            
             for tx in new_txs:
                 pid = tx[2]["pid"]
                 p = f'P:{pid}' # type: ignore
@@ -157,7 +159,8 @@ async def update_thread():
                     p_update[p]['cSupply'] = p_update[p]['tSupply'] -  tx[2]["baseReserve"]
                     continue
                 
-                p_update[p]['price'] = tx[2]['price']
+                if tx[2]['price'] <= 10 * p_update[p]['price']:
+                    p_update[p]['price'] = tx[2]['price']
                 p_update[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_update[p]['mcap'] = (p_update[p]['tSupply'] or 1e9) * p_update[p]['price']  # TODO with T:*
                 
@@ -245,11 +248,14 @@ async def update_thread():
                     p_update[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
                     p_update[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
                     cc += common.now() - t
-                p_update[p][f'makers'] = r.zcount(f'SS_PMakers_Ref:{pid}', "-inf", "+inf")
-                p_update[p][f'buyers'] = r.zcount(f'SS_PBuyers_Ref:{pid}', "-inf", "+inf")
-                p_update[p][f'sellers'] = r.zcount(f'SS_PSellers_Ref:{pid}', "-inf", "+inf")
+                p_update[p]['makers'] = r.zcount(f'SS_PMakers_Ref:{pid}', "-inf", "+inf")
+                p_update[p]['buyers'] = r.zcount(f'SS_PBuyers_Ref:{pid}', "-inf", "+inf")
+                p_update[p]['sellers'] = r.zcount(f'SS_PSellers_Ref:{pid}', "-inf", "+inf")
                 # TODO
-                # p_update[p][f'holders'] = r.zcount(f'SS_PMakers_Ref{pid}', "0", "+inf")
+                tid = common.mintToId(cur, r, p_update[p]['baseMint'])
+                holders = r.zcount(f'SS_THolders_Ref:{pid}', 0.0000000001, "+inf")
+                p_update[p]['holders'] = holders
+                # t_update[tid]['holders'] = 
             if __: print(f'aa: {aa}, bb: {bb}, cc: {cc}')
             if __: _b()
 
@@ -322,7 +328,7 @@ async def update_thread():
             input_pg.update_txs(cur, new_txs)            # insert
             input_pg.write_pairs(cur, p_update)         # insert/update
             input_pg.update_wallets(cur, w_update)      # insert/get + update
-            # input_pg.write_tokens(cur, )
+            # input_pg.update_tokens(cur, t_update)
             # 
             # # insert
             if __: _b()
@@ -334,8 +340,7 @@ async def update_thread():
             t_end1 += t_end_ - t_start_
             # print(t_end_ - t_start_)
             
-            
-            
+            if __: _b('tx send')
             tasks = []
             for ns in env.NSS:
                 rs = r.zrevrange(f'SS_RO{ns}', 0, -1, withscores=True)
@@ -348,6 +353,7 @@ async def update_thread():
                     tasks.append(asyncio.create_task(query_send(ns, room, payload)))
             if tasks:
                 await asyncio.gather(*tasks)
+            if __: _b()
             
             t_end = datetime.datetime.now()
             blockTime = new_txs[len(new_txs) - 1][2]["blockTime"] + 7 * 3600

@@ -27,21 +27,49 @@
           id="tv_chart_container"
           class="flex items-center justify-center w-[1200px] h-[500px] m-5"
         ></div>
-        <div id="data-table" class="flex flex-col">
-            <button class="flex items-center justify-center text-[white] text-[15px] ml-4" onclick="goBack()">Back...</button>
-            <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold text-[white]">
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');" id="baseSymbol"></a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');" id="quoteSymbol"></a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>
-                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>
-            </div>
-            <div id="data_list">
-
+        <!-- <button class="flex items-center justify-center text-[white] text-[15px] ml-4" onclick="goBack()">Back...</button> -->
+        <!-- Tab navigation -->
+        <ul class="flex border-b">
+            <li class="-mb-px mr-1">
+            <a class="bg-white inline-block border-l border-t border-r rounded-t py-2 px-4 text-blue-700 font-semibold" href="#" onclick="switchTab(event, 'tab1')">Transactions</a>
+            </li>
+            <li class="mr-1">
+            <a class="bg-white inline-block py-2 px-4 text-[black] hover:text-blue-800 font-semibold" href="#" onclick="switchTab(event, 'tab2')">Holders</a>
+            </li>
+            <li class="mr-1">
+            <a class="bg-white inline-block py-2 px-4 text-[black] hover:text-blue-800 font-semibold" href="#" onclick="switchTab(event, 'tab3')">Tab 3</a>
+            </li>
+        </ul>
+        <!-- Tab content -->
+        <div id="tab1" class="tab-content">
+            <div id="data-table" class="flex flex-col">
+                <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold text-[white]">
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center" href="javascript:setTxSort(\'blockTime\');"> DATE(GMT) </a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[120px] h-[40px] text-center" href="javascript:setTxSort(\'type\');"> TYPE </a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'volume\');"> USD </a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'baseAmount\');" id="baseSymbol"></a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'quoteAmount\');" id="quoteSymbol"></a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center" href="javascript:setTxSort(\'price\');"> PRICE </a>
+                    <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center" href="javascript:setTxSort(\'signer\');"> MAKER </a>
+                </div>
+                <div id="tx_list"></div>
             </div>
         </div>
+        <div id="tab2" class="tab-content hidden">
+            <div class="data_row flex mx-auto w-full bg-[#39393E] text-[18px] font-bold text-[white]">
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[220px] h-[40px] text-center"> ADDRESS </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[120px] h-[40px] text-center"> % </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[160px] h-[40px] text-center"> AMOUNT </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[180px] h-[40px] text-center"> VALUE </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[80px] h-[40px] text-center"> TXNS </a>
+                <a class="data_cell flex items-center justify-center border border-solid border-[#2E2E33] w-[60px] h-[40px] text-center"> EXP </a>
+            </div>
+            <div id="holders_list"></div>
+        </div>
+        <div id="tab3" class="tab-content hidden">
+            <div id="top_traders_list"></div>
+        </div>
+        
       </div>
     </div>
   </body>
@@ -52,7 +80,9 @@
         var limit = 10;
         var pool = "{{pool}}";
         var filter = "";
-        var idle = true;
+        var baseMint = ''
+        var quoteMint = ''
+        var tSupply = 0
 
         var txsData = []
         var chart;
@@ -62,11 +92,11 @@
         socket.on('connect', () => {
             console.log('Connected to server')
             if (chart == undefined) init();
-            get_historical_txs()
+            getHistoricalTxs()
             socket.emit('subscribe', {
                 type: "TXS_DATA_REALTIME",
                 data: {
-                    pool, filter
+                    address: pool, filter
                 }
             })
         })
@@ -74,15 +104,16 @@
             console.log('Disconnected from server')
         })
 
-        function get_historical_txs() {
+        function getHistoricalTxs() {
             socket.emit('data', {
                 type: "TXS_DATA_HISTORICAL", 
                 data: {
-                    pool, filter, skip, limit
+                    address: pool, filter, skip, limit
                 }
             }, (data) => {
                 console.log(data.type)
-                addTxData(data)
+                document.getElementById("tx_list").innerHTML = ""
+                addTxRows(data)
             })
         }
 
@@ -97,7 +128,7 @@
     // }
         socket.on('TX_DATA', (data) => {
             console.log(data.type)
-            addTxData(data, true)
+            addTxRows(data, true)
         })
 
         socket.on('message', (data) => {
@@ -121,7 +152,9 @@
         function goBack() {
             location.href = location.origin;
         }
-        function getRowString(row) {
+
+        // ================ Transactions ===============
+        function getTxRowString(row) {
             return '<div class="data_row hover:bg-[#3A3A44] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">' +
                         '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> ' +
                             formatDate(Number(row["blockUnixTime"]) * 1000) +
@@ -147,55 +180,100 @@
                         '</div>\
                     </div>';
         }
-        function addTxData(data, is_front = false) {
+        
+        function addTxRows(data, is_front = false) {
             if (data['data'] == undefined) return
             if (data['baseSymbol'] != undefined)
                 document.getElementById("baseSymbol").innerHTML = formatString(data["baseSymbol"])
             if (data['quoteSymbol'] != undefined)
                 document.getElementById("quoteSymbol").innerHTML = formatString(data["quoteSymbol"])
+            baseMint = data['baseMint']
+            quoteMint = data['quoteMint']
             var html = "";
             for (var i = 0; i < data["data"].length; i++) {
-                html += getRowString(data['data'][i])
+                html += getTxRowString(data['data'][i])
             }
-            var prev_html = document.getElementById("data_list").innerHTML
+            var prev_html = document.getElementById("tx_list").innerHTML
             var new_html = is_front ? html + prev_html : prev_html + html
-            list = document.getElementById("data_list")
+            list = document.getElementById("tx_list")
             list.innerHTML = new_html;
-            skip += data['data'].length
+            if (!is_front)
+                skip += data['data'].length
 
             while(list.children.length > 100)
                 list.children[100].remove()
         }
-        function fetchData() {
-            document.getElementById("data_list").innerHTML = ""
-            skip = 0
-            limit = 10
-            get_historical_txs();
-            return
-            // if (!idle || pool == undefined || pool == "") return;
-            // idle = false;
-            // count++;
-            // document.getElementById("count").innerHTML = "request: " + count;
-            // fetch(
-            //     "/api/tx/query?pool=" +
-            //     pool +
-            //     "&sort=" +
-            //     sort +
-            //     "&skip=" +
-            //     skip +
-            //     "&limit=" +
-            //     limit +
-            //     ""
-            // )
-            // .then((response) => response.json())
-            // .then((data) => {
-            //     idle = true;
-            //     setTxData(data)
-            // })
-            // .catch((error) => {
-            //     idle = true;
-            //     console.error("Error:", error);
-            // });
+
+        // -============= HOLDERS =-===================
+        function getHolders () {
+            fetch(
+                "/api/tx/holders?address=" + pool + "&address_type=" + "pair" + "&skip=" + 0 + "&limit=" + 30
+            )
+            .then((response) => response.json())
+            .then((data) => {
+                if (data == undefined || data.tSupply == undefined || data.data == undefined) return
+                tSupply = data.tSupply
+                setHolders(data.data)
+            })
+            .catch((error) => { console.error("Error:", error) })
+        }
+
+        function getHoldersRowString(row) {
+            // TODO
+            return '<div class="data_row hover:bg-[#3A3A44] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">' +
+                        '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-center text-[white] text-right"> ' +
+                            formatString(row["address"]) +
+                        '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[120px] h-[35px] pr-2 justify-end ' +
+                            'text-[white] text-right">' + f(row["percent"]) + '%</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[160px] h-[35px] pr-2 justify-end ' +
+                            'text-[white] text-right"> ' + f(row["amount"]) + ' / ' + f(tSupply) +'</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[180px] h-[35px] pr-2 justify-end ' +
+                            'text-[white] text-right">$ ' + f(row["value"]) + '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[80px] h-[35px] pr-2 justify-center ' +
+                            'text-[white] text-center">' + '<svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16" focusable="false" class="chakra-icon custom-o0x7be" aria-hidden="true" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 2v1.67l-5 4.759V14H6V8.429l-5-4.76V2h14zM7 8v5h2V8l5-4.76V3H2v.24L7 8z"></path></svg>' + '</div>\
+                        <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[60px] h-[35px] pr-2 justify-center ' +
+                            'text-[white] text-center"> ' + '' + 
+                            '<a className="ml-2" style="margin-left: 10px" href="https://solscan.io/account/'+ row['address'] + '\"}>' +
+                                '<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" focusable="false" className="chakra-icon custom-13otjrl" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">' +
+                                    '<path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z">' +
+                                    '</path>' +
+                                '</svg>' +
+                            '</a>' +
+                        '</div>\
+                    </div>';
+        }
+
+        function setHolders(rows) {
+            if (rows == undefined) return
+            html = ''
+            for(var i = 0; i < rows.length; i++) {
+                html += getHoldersRowString(rows[i])
+            }
+            list = document.getElementById("holders_list")
+            list.innerHTML = html;
+        }
+
+        // =================== Top Traders =================
+        function getTopTradersRowString(row) {
+            return '';
+        }
+        function getTopTraders() {
+
+        }
+        function setTopTraders() {
+            html = ''
+            for(var i = 0; i < rows.length(); i++) {
+                html += getTopTradersRowString(rows[i])
+            }
+            list = document.getElementById("top_traders_list")
+            list.innerHTML = html;
+        }
+
+        function fetchData () {
+            // getHistoricalTxs();
+            getHolders();
+            getTopTraders();
         }
 
         // fetchData();
@@ -206,9 +284,8 @@
 
     <script type="text/javascript">
 
-        var idle = false;
-
         var interval = 1;
+        var curTab = 'tab1';
 
         function init() {
             const offset = (-1 * new Date().getTimezoneOffset()) / 60;
@@ -268,6 +345,24 @@
                 chart.activeChart().setTimezone("UTC");
                 });
             }
+
+            fetchData()
+        }
+
+        function switchTab(event, tabId) {
+            event.preventDefault();
+            if (curTab == tabId) return;
+            curTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            document.querySelectorAll('ul li a').forEach(tab => {
+                tab.classList.remove('text-blue-700', 'border-l', 'border-t', 'border-r', 'rounded-t');
+                tab.classList.add('text-blue-500', 'hover:text-blue-800');
+            });
+            event.target.classList.remove('text-blue-500', 'hover:text-blue-800');
+            event.target.classList.add('text-blue-700', 'border-l', 'border-t', 'border-r', 'rounded-t');
         }
     </script>
 </html>
