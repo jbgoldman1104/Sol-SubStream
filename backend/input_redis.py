@@ -55,10 +55,8 @@ async def update_thread():
             
             t_start = datetime.datetime.now()
 
-            now = common.nows()
-            prev_time = r.zrevrange('SS_BLK', 0, 0, withscores=True)
-            prev = now if not prev_time else int(prev_time[0][1]) # type: ignore
-            # delta = now - prev
+            # now = common.nows()
+            
 
             # cache_set = r.smembers('S_C')
             # --- add new block and txs --- Checked
@@ -108,9 +106,21 @@ async def update_thread():
 
             
             # TODO lifetime, Only Hot Tx
+            prev_time = r.zrevrange('SS_BLK', 0, 0, withscores=True)
+            prev = synced_now if not prev_time else int(prev_time[0][1]) # type: ignore
+            # delta = synced_now - prev
+            
             if new_txs:
                 r.json().mset(new_txs) # type: ignore
-            r.zadd('SS_BLK', { blk_value: now })
+            for tx in new_txs:
+                pipe.expire(tx[0], env.EXPIRE_TIME)
+            r.zadd('SS_BLK', { blk_value: synced_now })
+            remove_blks = r.zrevrangebyscore('SS_BLK', synced_now - env.EXPIRE_TIME, "-inf")
+            pipe.zremrangebyscore('SS_BLK', "-inf", synced_now - env.EXPIRE_TIME)
+            # for blk in remove_blks:
+            #     tx_ids = blk.decode().split(',')
+            #     pipe.delete(*[f'TX:{tx_id}' for tx_id in tx_ids])
+            pipe.execute()
             if __: _b()
 
             # --- TS_i ---
@@ -120,8 +130,9 @@ async def update_thread():
             if __: _b()
 
             # --- Recent and Old Read Count ---
+            
             if __: _b('4')
-            new_r_pids = r.zrangebyscore('SS_PR', prev, now) # for +
+            new_r_pids = r.zrangebyscore('SS_PR', prev, synced_now) # for +
             new_r_pids = [item.decode() for item in new_r_pids] # type: ignore
             
             # --- Make New Token Values ---
@@ -143,10 +154,6 @@ async def update_thread():
             
             # -- Apply for new txs (TODO: Score, Volume, Makers Algorithm) --
             if __: _b('5')
-            aa = 0
-            bb = 0
-            cc = 0
-            
             for tx in new_txs:
                 pid = tx[2]["pid"]
                 p = f'P:{pid}' # type: ignore
@@ -180,7 +187,6 @@ async def update_thread():
                     aaaa = 1
 
                 # -- Make Txns, Makers, Buyers, Sellers tree --
-                t = common.now()
                 pipe.zadd(f'SS_PVolume_Ref:{pid}', {p_update[p]['volume']: tx[2]['blockTime']})
                 pipe.zadd(f'SS_PBuyVolume_Ref:{pid}', {p_update[p]['buyVolume']: tx[2]['blockTime']})
                 pipe.zadd(f'SS_PSellVolume_Ref:{pid}', {p_update[p]['sellVolume']: tx[2]['blockTime']})
@@ -193,70 +199,87 @@ async def update_thread():
                     pipe.zadd(f'SS_PSells_Ref:{pid}', {tx[2]['id']: tx[2]['blockTime']})
                     pipe.zadd(f'SS_PSellers_Ref:{pid}', {tx[2]['signer']: tx[2]['blockTime']})
                 
-                aa += common.now() - t
                 
                 # -- Assert dex info --
-                t = common.now()
                 if not p_update[p]['dex']:
                     p_update[p]['outerProgram'] = tx[2]['outerProgram']
                     dex = r.json().get(f'D:{tx[2]["outerProgram"]}')
                     if dex:
                         p_update[p]['dex'] = dex['name']
                         p_update[p]['dexImage'] = dex['image']
-                bb += common.now() - t
             pipe.execute()
-            if __: print(f'aa: {aa}, bb: {bb}')
             if __: _b()
 
             # -- Calculate Pair Statistics --
             if __: _b('6')
-            aa = 0
-            bb = 0
-            cc = 0
+            for pid in new_txs_pids:
+                p = f'P:{pid}'
+                for i in range(env.NUM_DURATIONS):
+                    pipe.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}')
+                    pipe.zrevrangebyscore(f'SS_PVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    pipe.zrevrangebyscore(f'SS_PBuyVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    pipe.zrevrangebyscore(f'SS_PSellVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    pipe.zcount(f'SS_PTxns_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    pipe.zcount(f'SS_PBuys_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    pipe.zcount(f'SS_PSells_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    pipe.zcount(f'SS_PMakers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    pipe.zcount(f'SS_PBuyers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    pipe.zcount(f'SS_PSellers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                pipe.zcount(f'SS_PMakers_Ref:{pid}', "-inf", "+inf")
+                pipe.zcount(f'SS_PBuyers_Ref:{pid}', "-inf", "+inf")
+                pipe.zcount(f'SS_PSellers_Ref:{pid}', "-inf", "+inf")
+                pipe.zcount(f'SS_THolders_Ref:{pid}', 0.0000000001, "+inf")
+            read_data = pipe.execute()
             
-            read_data = []
-            
+            pi = 0
             for pid in new_txs_pids:
                 p = f'P:{pid}'
                 for i in range(env.NUM_DURATIONS):
                     # p_replace[p][f'txns{i}'] = (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}') or (0,0))[1] + (r.ts().get(f'TS_PT:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
                     # p_replace[p][f'volume{i}'] = (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1] + (r.ts().get(f'TS_PV:{pid}:{env.DURATION_TS[i]}', latest = True) or (0, 0))[1]
                     # p_replace[p][f'makers{i}'] = p_replace[p][f'txns{i}']   # TODO
-                    t = common.now()
-                    prevPrice = (r.ts().get(f'TS_PA:{pid}:{env.DURATION_TS[i]}') or (0, 0))[1]
+                    prevPrice = (read_data[pi]  or (0, 0))[1]
+                    pi += 1
                     p_update[p][f'd_price{i}'] = (p_update[p]['price'] / prevPrice - 1.0) if prevPrice > 0 else 0.0
-                    aa += common.now() - t
 
-                    t = common.now()
-                    val = r.zrevrangebyscore(f'SS_PVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = read_data[pi]
+                    pi += 1
                     val = val[0].decode() if val else 0
                     p_update[p][f'volume{i}'] = p_update[p]['volume'] - float(val)
-                    val = r.zrevrangebyscore(f'SS_PBuyVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = read_data[pi]
+                    pi += 1
                     val = val[0].decode() if val else 0
                     p_update[p][f'buyVolume{i}'] = p_update[p]['buyVolume'] - float(val)
-                    val = r.zrevrangebyscore(f'SS_PSellVolume_Ref:{pid}', synced_now - env.DURATION[i], '-inf', 0, 1)
+                    val = read_data[pi]
+                    pi += 1
                     val = val[0].decode() if val else 0
                     p_update[p][f'sellVolume{i}'] = p_update[p]['sellVolume'] - float(val)
-                    bb += common.now() - t
 
-                    t = common.now()
-                    p_update[p][f'txns{i}'] = r.zcount(f'SS_PTxns_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'buys{i}'] = r.zcount(f'SS_PBuys_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'sells{i}'] = r.zcount(f'SS_PSells_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
+                    p_update[p][f'txns{i}'] = read_data[pi]
+                    pi += 1
+                    p_update[p][f'buys{i}'] = read_data[pi]
+                    pi += 1
+                    p_update[p][f'sells{i}'] = read_data[pi]
+                    pi += 1
                     
-                    p_update[p][f'makers{i}'] = r.zcount(f'SS_PMakers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'buyers{i}'] = r.zcount(f'SS_PBuyers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
-                    p_update[p][f'sellers{i}'] = r.zcount(f'SS_PSellers_Ref:{pid}', synced_now - env.DURATION[i], synced_now)
-                    cc += common.now() - t
-                p_update[p]['makers'] = r.zcount(f'SS_PMakers_Ref:{pid}', "-inf", "+inf")
-                p_update[p]['buyers'] = r.zcount(f'SS_PBuyers_Ref:{pid}', "-inf", "+inf")
-                p_update[p]['sellers'] = r.zcount(f'SS_PSellers_Ref:{pid}', "-inf", "+inf")
+                    p_update[p][f'makers{i}'] = read_data[pi]
+                    pi += 1
+                    p_update[p][f'buyers{i}'] = read_data[pi]
+                    pi += 1
+                    p_update[p][f'sellers{i}'] = read_data[pi]
+                    pi += 1
+                p_update[p]['makers'] = read_data[pi]
+                pi += 1
+                p_update[p]['buyers'] = read_data[pi]
+                pi += 1
+                p_update[p]['sellers'] = read_data[pi]
+                pi += 1
                 # TODO
                 tid = common.mintToId(cur, r, p_update[p]['baseMint'])
-                holders = r.zcount(f'SS_THolders_Ref:{pid}', 0.0000000001, "+inf")
+                holders = read_data[pi]
+                pi += 1
                 p_update[p]['holders'] = holders
                 # t_update[tid]['holders'] = 
-            if __: print(f'aa: {aa}, bb: {bb}, cc: {cc}')
             if __: _b()
 
             # -- Apply for recent --

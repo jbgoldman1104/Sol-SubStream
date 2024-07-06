@@ -146,7 +146,7 @@ def toT(row: tuple|list):
                 })
 
 def defaultTValue(id, mint: str):
-    return (f'{id}', mint, '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', '')
+    return (id, mint, '', '', '', 0, [], [], [], None, 0, 0, 0, True, None, '', '', '', '')
 
 def defaultT(id, mint: str):
     return toT(defaultTValue(id, mint))

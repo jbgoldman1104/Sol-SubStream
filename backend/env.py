@@ -29,6 +29,7 @@ USE_P_TABLE = False
 DB_READ_SIZE = 1000
 NUM_REQUESTS = 1
 NUM_DURATIONS = len(DURATION)
+EXPIRE_TIME = 86400
 
 # --- exported files ---
 FILENAME_D = '/root/torres/Sol-SubStream/fileD.json'
