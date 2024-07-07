@@ -112,7 +112,7 @@ def get_nft(id, mint_key):
             uri_data["image"] if "image" in uri_data else None, 
             uri_data["description"] if "description" in uri_data else None, 
             uri_data["twitter"] if "twitter" in uri_data else None, 
-            uri_data["website"] if "website" in uri_data else None )
+            uri_data["website"] if "website" in uri_data else None, 0, 0 )
 
 async def update_nft(cur, id, mint):
     # print(f"start token info: {mint}")
@@ -131,8 +131,31 @@ async def update_nft(cur, id, mint):
         print(f"update_nft error: {id}: {mint}")
         tokens = [common.defaultT(id, mint)]
         # common.writeFailedT(id, mint)
+    
     r.json().mset(tokens)
-    input_pg.write_tokens(cur, tokens)
+    
+    pids = r.smembers(f'S_TtoPs:{id}')
+    if not pids: return
+    pairs = r.json().mget([f'P:{t.decode()}' for t in pids], ".") # type: ignore
+    if not pairs: return
+    p_update = {}
+    for t in tokens:
+        if t[2]['symbol']:
+            for p in pairs:
+                if not p['baseSymbol']:
+                    if p['baseMint'] == mint:
+                        p['baseName'] = t[2]['name']
+                        p['baseSymbol'] = t[2]['symbol']
+                    elif p['quoteMint'] == mint:
+                        p['quoteName'] = t[2]['name']
+                        p['quoteSymbol'] = t[2]['symbol']
+                    pid = p['id']
+                    p_update[f'P:{pid}'] = p
+    if p_update:
+        # r.json().mset(p_update)
+        r.json().mset([(f'P:{p["id"]}', ".", p) for p in p_update.values()])
+        input_pg.write_pairs(cur, p_update)
+
     # r.lpop('L_TOKEN_REQUEST')
 
 
@@ -157,6 +180,7 @@ async def token_thread():
         # print(r.llen('L_TOKEN_REQUEST'))
         # while r.llen('L_TOKEN_REQUEST') > env.NUM_REQUESTS:
             # await asyncio.sleep(0.2)
+        input_pg.write_tokens(cur, [common.defaultT(split[0], split[1])])
         tasks.append(asyncio.create_task(update_nft(cur, int(split[0]), split[1])))
         # r.lpush('L_TOKEN_REQUEST', int(split[0]))
         # await temp

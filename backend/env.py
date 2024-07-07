@@ -1,4 +1,4 @@
-
+DEBUG = False
 DOMAIN = 'http://localhost:8000'
 # DOMAIN = 'https://memetrend.united-crypto.xyz'
 

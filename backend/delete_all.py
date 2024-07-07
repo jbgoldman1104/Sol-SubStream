@@ -40,6 +40,5 @@ def delete_all():
 
     _b()
 
-
 if __name__ == "__main__":
     rlt = delete_all()

@@ -30,7 +30,7 @@ async def query_send(ns, data, payload):
         
 async def update_thread():
         print('-- input_redis process started. --')
-        __ = True
+        __ = False  # Timing
     # try:
         r = common.connect_redis()
         pipe = r.pipeline()
@@ -56,8 +56,6 @@ async def update_thread():
             t_start = datetime.datetime.now()
 
             # now = common.nows()
-            
-
             # cache_set = r.smembers('S_C')
             # --- add new block and txs --- Checked
             new_txs = []
@@ -344,24 +342,19 @@ async def update_thread():
                 payload[pool].append(tx)
             if __: _b()
             
-            
             # -- finished updating one period --
-            if __: _b('save db')
+            # -TODO Backup-
+            # r.dump()
+            # r.restore()
+
             # -TODO Sync with PG-
+            if __: _b('save db')
             input_pg.update_txs(cur, new_txs)            # insert
             input_pg.write_pairs(cur, p_update)         # insert/update
             input_pg.update_wallets(cur, w_update)      # insert/get + update
             # input_pg.update_tokens(cur, t_update)
-            # 
-            # # insert
-            if __: _b()
-            
-            
-            t_start_ = datetime.datetime.now()
             common.setSyncValue(cur, "read_tx_id", read_tx_id)
-            t_end_ = datetime.datetime.now()
-            t_end1 += t_end_ - t_start_
-            # print(t_end_ - t_start_)
+            if __: _b()
             
             if __: _b('tx send')
             tasks = []
@@ -385,6 +378,9 @@ async def update_thread():
     (DB: {(t_end1 - t_start1).total_seconds()} s\
     OTHERS:{((t_end - t_start) - (t_end1 - t_start1)).total_seconds()} s)')
             rep += 1
+            
+            conn.commit()
+            
         conn.close()
 
     # except Exception as e:

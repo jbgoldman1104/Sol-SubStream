@@ -169,7 +169,7 @@ def query_tx_historical(address: str = "", filter = "", skip: int = 0, limit: in
     if len(rows) < limit:
         l = len(rows)
         cur.execute("SELECT * FROM \"trade\" WHERE \"poolAddress\" = \"%s\" ORDER BY \"blockTime\" DESC OFFSET %s LIMIT %s" ,
-                    address, skip + l, limit - l)
+                    (address, skip + l, limit - l))
         rows_pg = cur.fetchmany(limit)
         if rows_pg:
             # txs = [common.toTx(cur, r, row) for row in rows_pg]
@@ -478,6 +478,6 @@ if __name__ == "__main__":
     # print(common.getMintAddresses(r, '1'))
     # print(query_chart('A1BBtTYJd4i3xU8D6Tc2FzU6ZN4oXZWXKZnCxwbHXr8x', 1718629188, 1718727888, 2))
     # print(query_chart('2mCaQrTySFYQtmrKxQxMHBdqHnm2mTx9hMRUbFuNz4Jx', 0, 0, 2))
-    # print(query_tx('4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg'))
-    print(query_holders('eQV2ucvHe1MFu7gG9kCJLPPzHPdXcq4auLNanz6ZXBQ', 'pair', 0, 10))
+    print(query_tx_historical('EENwNvk2asNwFSyke3nU9NwCHj1ad7R1gyuHZrZY743G'))
+    # print(query_holders('eQV2ucvHe1MFu7gG9kCJLPPzHPdXcq4auLNanz6ZXBQ', 'pair', 0, 10))
     pass

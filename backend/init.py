@@ -8,6 +8,7 @@ from redis.commands.json.path import Path
 from benchmark import _b
 from random import random as rd
 from random import randint as rdi
+import redis
 
 import input_pg
 
@@ -71,15 +72,11 @@ def importT(r, filename: str):
     # ts == line.split('^')
 
 
-
 def init_redis():
-
-    
-    r.xtrim("INIT_COMPLETE", maxlen = 0)
-    
+    # r.xtrim("INIT_COMPLETE", maxlen = 0)
     _b('INIT')
 
-    r.flushall()
+    # r.flushall()
     pipe = r.pipeline()
     path = "."
     now = common.now()
@@ -92,6 +89,9 @@ def init_redis():
         cur.execute("""
             CREATE TABLE sync ("read_tx_id" INT, "read_p_id" INT)
             """)
+        common.setSyncValue(cur, "read_tx_id", 0)
+        if env.USE_P_TABLE:
+            common.setSyncValue(cur, "read_p_id", 0)
 
     cur.execute("SELECT * FROM sync", [])
     if not bool(cur.rowcount):
@@ -229,11 +229,17 @@ def init_redis():
     conn.commit()
 
     # --------------------- Import Data From PG ---------------------
-    input_pg.read_txs(cur, r)
-    input_pg.read_tokens(cur, r)
-    input_pg.read_pairs(cur, r)
-    input_pg.read_wallets(cur, r)
-    input_pg.read_dexes(cur, r)
+    _, keys = r.scan(match='TX:*', count=1)
+    if len(keys) == 0:
+        input_pg.read_txs(cur, r)
+    if not r.exists('H_D'):
+        input_pg.read_dexes(cur, r)
+    if not r.exists('H_T'):
+        input_pg.read_tokens(cur, r)
+    if not r.exists('H_P'):
+        input_pg.read_pairs(cur, r)
+    if not r.exists('H_W'):
+        input_pg.read_wallets(cur, r)
     
 
     # --- Import D:, H_D ---
@@ -250,25 +256,24 @@ def init_redis():
 
 
     # --- Create Indexes ---
-    r.ft("IDX_T").create_index((TextField("$.name", as_name="name"),
-                                TextField("$.symbol", as_name="symbol")),
-                        definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["T:"]))
-    r.ft("IDX_P").create_index((NumericField("$.id", as_name="id"),
-                                # NumericField("$.price", as_name="price", sortable=True),
-                                TextField("$.symbol", as_name="symbol")),
-                        definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["P:"]))
-    r.ft("IDX_TX").create_index((NumericField("$.pid", as_name="pid"),
-                                 NumericField("$.blockTime", as_name="blockTime", sortable=True), 
-                                #  TagField("$.baseMint", as_name="baseMint"), TagField("$.quiteMint", as_name="quiteMint"),
-                                #  NumericField("$.type", as_name="type"),
-                                 NumericField("$.baseAmount", as_name="baseAmount"),
-                                 TagField("$.signer", as_name="signer")),
-                        definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["TX:"]))
+    if not common.indexExists(r, "IDX_T"):
+        r.ft("IDX_T").create_index((TextField("$.name", as_name="name"),
+                                    TextField("$.symbol", as_name="symbol")),
+                            definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["T:"]))
+    if not common.indexExists(r, "IDX_P"):
+        r.ft("IDX_P").create_index((NumericField("$.id", as_name="id"),
+                                    # NumericField("$.price", as_name="price", sortable=True),
+                                    TextField("$.symbol", as_name="symbol")),
+                            definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["P:"]))
+    if not common.indexExists(r, "IDX_TX"):
+        r.ft("IDX_TX").create_index((NumericField("$.pid", as_name="pid"),
+                                    NumericField("$.blockTime", as_name="blockTime", sortable=True), 
+                                    #  TagField("$.baseMint", as_name="baseMint"), TagField("$.quiteMint", as_name="quiteMint"),
+                                    #  NumericField("$.type", as_name="type"),
+                                    NumericField("$.baseAmount", as_name="baseAmount"),
+                                    TagField("$.signer", as_name="signer")),
+                            definition = IndexDefinition(index_type = IndexType.JSON, prefix = ["TX:"]))
     
-    
-    common.setSyncValue(cur, "read_tx_id", 0)
-    if env.USE_P_TABLE:
-        common.setSyncValue(cur, "read_p_id", 0)
     conn.commit()
     conn.close()
     
