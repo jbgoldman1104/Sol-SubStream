@@ -108,6 +108,8 @@ def toTx(cur, r, row: tuple):
         quoteMint = row[7] if swap else row[8]
         baseAmount = row[10] if swap else row[9]
         quoteAmount = row[9] if swap else row[10]
+        baseReserve = row[15] if swap else row[14]
+        quoteReserve = row[14] if swap else row[15]
         if row[11] == "SwapBaseIn":
             type = "Sell" if baseAmount > 0 else "Buy"
         elif row[11] == "Liquidity":
@@ -118,7 +120,7 @@ def toTx(cur, r, row: tuple):
         return (f'TX:{row[0]}', ".", {"id": row[0], "blockDate": row[1].timestamp(), "blockTime": row[2], "blockSlot": row[3],
                                       "txId": row[4], "signer": row[5], "poolAddress": row[6], "baseMint": baseMint, "quoteMint": quoteMint,
                                       "baseAmount": baseAmount, "quoteAmount": quoteAmount, "instructionType": row[11],
-                                      "outerProgram": row[12], "innerProgram": row[13], "baseReserve": row[14], "quoteReserve": row[15], 
+                                      "outerProgram": row[12], "innerProgram": row[13], "baseReserve": baseReserve, "quoteReserve": quoteReserve, 
                                       # new fields
                                       "pid": poolToId(cur, r, row[6], f'{baseMint}/{quoteMint}', row[12]), "type": type, "price": 0,
                                       })

@@ -83,10 +83,9 @@ async def update_thread():
             new_txs_sel = []
             if __: _b('1')
             for tx in new_txs:
-                if tx[2]['instructionType'] != "Liquidity":
+                if tx[2]['instructionType'] != "Liquidity" and tx[2]['outerProgram'] != 'FqGg2Y1FNxMiGd51Q6UETixQWkF5fB92MysbYogRJb3P':
                     if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
-                        newSolPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
-                        if newSolPrice / solPrice < 10: solPrice = newSolPrice
+                        solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
                     tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
                     blk_value += f'{tx[2]["id"]}' if not blk_value else f',{tx[2]["id"]}'
                     new_txs_sel.append(tx)
