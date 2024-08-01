@@ -18,3 +18,4 @@ cursor.lock
 .env
 fileT.json
 fileFailedT.json
+dex-trades/out.json

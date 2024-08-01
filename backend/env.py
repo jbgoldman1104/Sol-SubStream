@@ -13,7 +13,7 @@ REDIS_PORT = 6379
 # DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
 DB_HOST = 'localhost'
 DB_PORT = 5432
-DB_NAME = 'dex_trade'
+DB_NAME = 'postgres'
 DB_USER = 'postgres'
 DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
 
