@@ -23,6 +23,11 @@ pub fn parse_trade_instruction(
                 amm: input_accounts.get(1).unwrap().to_string(),
                 vault_a: get_vault_a(&input_accounts, post_token_balances, accounts),
                 vault_b: get_vault_b(&input_accounts, post_token_balances, accounts),
+                base_mint: "123".to_string(),
+                quote_mint: "123".to_string(),
+                base_amount: 0.0,
+                quote_amount: 0.0,
+                i_type: "123".to_string(),
             });
         }
         1 => {
@@ -32,6 +37,11 @@ pub fn parse_trade_instruction(
                 amm: input_accounts.get(4).unwrap().to_string(),
                 vault_a: get_vault_a_init(&input_accounts, post_token_balances, accounts),
                 vault_b: get_vault_b_init(&input_accounts, post_token_balances, accounts),
+                base_mint: "123".to_string(),
+                quote_mint: "123".to_string(),
+                base_amount: 0.0,
+                quote_amount: 0.0,
+                i_type: "123".to_string(),
             });
         }
         3 => {
@@ -41,6 +51,11 @@ pub fn parse_trade_instruction(
                 amm: input_accounts.get(1).unwrap().to_string(),
                 vault_a: get_vault_a_liquidity(&input_accounts, post_token_balances, accounts),
                 vault_b: get_vault_b_liquidity(&input_accounts, post_token_balances, accounts),
+                base_mint: "123".to_string(),
+                quote_mint: "123".to_string(),
+                base_amount: 0.0,
+                quote_amount: 0.0,
+                i_type: "123".to_string(),
             });
         }
         4 => {
@@ -50,11 +65,14 @@ pub fn parse_trade_instruction(
                 amm: input_accounts.get(1).unwrap().to_string(),
                 vault_a: get_vault_a_liquidity(&input_accounts, post_token_balances, accounts),
                 vault_b: get_vault_b_liquidity(&input_accounts, post_token_balances, accounts),
+                base_mint: "123".to_string(),
+                quote_mint: "123".to_string(),
+                base_amount: 0.0,
+                quote_amount: 0.0,
+                i_type: "123".to_string(),
             });
         }
-        _ => {
-            
-        }
+        _ => {}
     }
 
     return result;
@@ -90,7 +108,6 @@ fn get_vault_b(
 
     return vault_b;
 }
-
 
 fn get_vault_a_init(
     input_accounts: &Vec<String>,

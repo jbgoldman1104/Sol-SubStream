@@ -20,6 +20,11 @@ pub fn parse_trade_instruction(
                 amm: accounts.get(0).unwrap().to_string(),
                 vault_a: accounts.get(7).unwrap().to_string(),
                 vault_b: accounts.get(8).unwrap().to_string(),
+                base_mint: "123".to_string(),
+                quote_mint: "123".to_string(),
+                base_amount: 0.0,
+                quote_amount: 0.0,
+                i_type: "123".to_string(),
             });
         }
         _ => {}

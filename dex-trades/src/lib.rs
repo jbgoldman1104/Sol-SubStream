@@ -42,8 +42,14 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                 let accounts = tx.resolved_accounts_as_strings();
                 let tx_id = bs58::encode(&tx.transaction.unwrap().signatures[0]).into_string();
 
+                let meta = tx.meta.as_ref().unwrap().clone();
+                let pre_balances = meta.pre_balances;
+                let post_balances = meta.post_balances;
+                let pre_token_balances = meta.pre_token_balances;
+                let post_token_balances = meta.post_token_balances;
+
                 for (id, ti) in tis.into_iter().enumerate() {
-                if tx_id == "2JhLFuj6J5QcEM2Nj4TrrD2idEBBfFQMAA9ATHHekqDDPQVXtN2yiTyia3tsmLA2fegXdgSGBVbvV8QkYjmHV7L8" {
+                    if tx_id == "2JhLFuj6J5QcEM2Nj4TrrD2idEBBfFQMAA9ATHHekqDDPQVXtN2yiTyia3tsmLA2fegXdgSGBVbvV8QkYjmHV7L8" {
                     data.push(TradeData {
                         block_date: convert_to_date(timestamp),
                         tx_id: tx_id.clone(),
@@ -51,22 +57,25 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                         block_time: timestamp,
                         signer: accounts.get(0).unwrap().to_string(),
                         pool_address: ti.amm.to_string(),
-                        base_mint: "".to_string(),
-                        quote_mint: "".to_string(),
-                        base_amount: 0.0,
-                        quote_amount: 0.0,
-                        base_vault: "".to_string(),
-                        quote_vault: "".to_string(),
+                        base_mint: ti.base_mint.to_string(),
+                        quote_mint: ti.quote_mint.to_string(),
+                        base_amount: ti.base_amount,
+                        quote_amount: ti.quote_amount,
+                        base_vault: ti.vault_a.to_string(),
+                        quote_vault: ti.vault_b.to_string(),
                         is_inner_instruction: false,
                         instruction_index: id as u32,
-                        instruction_type: "".to_string(),
-                        inner_instruxtion_index: 0,
-                        outer_program: "".to_string(),
+                        instruction_type: ti.i_type.to_string(),
+                        inner_instruction_index: 0,
+                        outer_program: ti.dapp_address.to_string(),
                         inner_program: "".to_string(),
                         txn_fee: 0,
-                        signer_sol_change: 0,
-                        base_reserve: 0.0,
-                        quote_reserve: 0.0,
+                        signer_sol_change: get_signer_balance_change(
+                            &pre_balances,
+                            &post_balances,
+                        ),
+                        base_reserve: get_amt_reserve(&ti.vault_a, &post_token_balances, &accounts),
+                        quote_reserve: get_amt_reserve(&ti.vault_b, &post_token_balances, &accounts),
                     });
                 }
                 }
@@ -125,6 +134,11 @@ fn parse_instruction(
         name: "123".to_string(),
         vault_a: "123".to_string(),
         vault_b: "123".to_string(),
+        base_mint: "123".to_string(),
+        quote_mint: "123".to_string(),
+        base_amount: 0.0,
+        quote_amount: 0.0,
+        i_type: "123".to_string(),
     };
     let result: Option<TradeInstruction> = Some(ti);
     return result;
@@ -194,6 +208,7 @@ fn get_amt_reserve(
     token_balances: &Vec<TokenBalance>,
     accounts: &Vec<String>,
 ) -> f64 {
+    return 1.0;
     let index = accounts.iter().position(|r| r == address).unwrap();
 
     let mut balance: f64 = 0 as f64;
