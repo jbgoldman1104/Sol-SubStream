@@ -1,8 +1,8 @@
 import sys
-from solana.publickey import PublicKey
+from solders.pubkey import Pubkey
 from solana.rpc.api import Client
 from spl.token.client import Token
-from solana.keypair import Keypair
+from solders.keypair import Keypair
 from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
 
 import base64
@@ -27,9 +27,9 @@ if env.USE_PG:
 solana_clients = [Client(env.API_KEY1), Client(env.API_KEY2)]
 cnt = 0
 
-METADATA_PROGRAM_ID = PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+METADATA_PROGRAM_ID = Pubkey.from_string('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
 def get_nft_pda(mint_key):
-    pda = PublicKey.find_program_address([b'metadata', bytes(METADATA_PROGRAM_ID), bytes(PublicKey(mint_key))],METADATA_PROGRAM_ID)[0]
+    pda = Pubkey.find_program_address([b'metadata', bytes(METADATA_PROGRAM_ID), bytes(Pubkey.from_string(mint_key))],METADATA_PROGRAM_ID)[0]
     return pda
 
 def unpack_metadata_account(data):
@@ -97,7 +97,7 @@ def get_nft(id, mint_key):
     try:
         meta = get_metadata(id, mint_key)['data']
         # client = Client(env.API_KEY_TEST)
-        token = Token(solana_clients[id % len(solana_clients)], PublicKey(mint_key), TOKEN_PROGRAM_ID, Keypair.generate())
+        token = Token(solana_clients[id % len(solana_clients)], Pubkey.from_string(mint_key), TOKEN_PROGRAM_ID, Keypair())
         info = token.get_mint_info()
         try:  # TODO slow
             uri_data = requests.get(meta['uri']).json()

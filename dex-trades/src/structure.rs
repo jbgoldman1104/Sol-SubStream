@@ -70,7 +70,6 @@ pub fn get_transfer_amounts(
     // return (100, 1000);
     let mut base_amount: i64 = 0;
     let mut quote_amount: i64 = 0;
-    let mut first = true;
     for inner_inst in &inst.inner_instructions {
         match TokenInstruction::unpack(&inner_inst.data) {
             Err(err) => {
@@ -91,21 +90,6 @@ pub fn get_transfer_amounts(
                             quote_amount = - quote_amount;
                         }
                     }
-                    // if destination == vault_a {
-                    //     base_amount = amt as i64;
-                    //     if first {
-                    //         first = false;
-                    //     } else {
-                    //         base_amount = -base_amount;
-                    //     }
-                    // } else if source == vault_b {
-                    //     quote_amount = amt as i64;
-                    //     if first {
-                    //         first = false;
-                    //     } else {
-                    //         quote_amount = -quote_amount;
-                    //     }
-                    // }
                     if base_amount != 0 && quote_amount != 0 {
                         break;
                     }

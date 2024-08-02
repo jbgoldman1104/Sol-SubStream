@@ -42,32 +42,32 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", logger=F
 sio_app = socketio.ASGIApp(socketio_server=sio, socketio_path="socket.io")
 app.mount("/socket.io", sio_app)
 
-def enter(sid, param, ns):
+async def enter(sid, param, ns):
     if not param: return
     room = param if type(param) == str else json.dumps(param)
     if param["type"] == "SUBSCRIBE_PAIRS":
-        leave(sid, None, ns)
+        await leave(sid, None, ns)
     # elif param["type"] == "SUBSCRIBE_TXS":
     #     leave(sid, )
     k = f'S_SR{sid}'
     # if r.sismember(k, room): return
     if room in mgr.get_rooms(sid, ns): return
     r.sadd(k, sid)
-    sio.enter_room(sid, room, ns)
+    await sio.enter_room(sid, room, ns)
     r.zincrby(f'SS_RO{ns}', 1, room)
     print(f'-- {sio} enter {ns} : {room} --')
         
-def leave(sid, param, ns):
+async def leave(sid, param, ns):
     k = f'S_SR{sid}'
     if not param:
         for prev_room in r.smembers(k):
-            sio.leave_room(sid, prev_room, ns)
+            await sio.leave_room(sid, prev_room, ns)
             r.zincrby(f'SS_RO{ns}', -1, prev_room)
             print(f'-- {sio} leave {ns} : {prev_room} --')
     else:
         room = param if type(param) == str else json.dumps(param)
         # if r.sismember(k, room):
-        sio.leave_room(sid, room, ns)
+        await sio.leave_room(sid, room, ns)
         r.zincrby(f'SS_RO{ns}', -1, room)
         print(f'-- {sio} leave {ns} : {room} --')
 
@@ -83,7 +83,7 @@ async def disconnect(sid):
     # for ns in env.NSS:
     #     leave(sid, None, ns)
     for room in mgr.get_rooms(sid, env.NS_ST):
-        leave(sid, room, env.NS_ST)
+        await leave(sid, room, env.NS_ST)
             
 @sio.event(namespace=env.NS_ST)
 async def subscribe(sid, data):
@@ -91,8 +91,8 @@ async def subscribe(sid, data):
     # leave(sid, None, env.NS_ST)
     for room in mgr.get_rooms(sid, env.NS_ST):
         if room != None and room.startswith("{"):
-            leave(sid, room, env.NS_ST)
-    enter(sid, data, env.NS_ST)
+            await leave(sid, room, env.NS_ST)
+    await enter(sid, data, env.NS_ST)
     js = common.js(data)
     if not js or not js['data']: return {}
     return query_redis.query_wrap('', js)
@@ -100,7 +100,7 @@ async def subscribe(sid, data):
 @sio.event(namespace=env.NS_ST)
 async def unsubscribe(sid, data):
     print(f'--- Unsubscribe ST ---: {sid} : {data}')
-    leave(sid, data, env.NS_ST)
+    await leave(sid, data, env.NS_ST)
     
 @sio.event(namespace=env.NS_ST)
 async def data(sid, data):
@@ -118,12 +118,12 @@ async def connect(sid, environ):
 async def disconnect(sid):
     print(f'--- Disconnected TX ---: {sid}')
     for ns in env.NSS:
-        leave(sid, None, ns)
+        await leave(sid, None, ns)
             
 @sio.event(namespace=env.NS_TX)
 async def subscribe(sid, data):
     print(f'--- Subscribe TX ---: {sid} : {data}')
-    enter(sid, data, env.NS_TX)
+    await enter(sid, data, env.NS_TX)
     js = common.js(data)
     if not js or not js['data']: return {}
     return query_redis.query_wrap('', js)
@@ -131,7 +131,7 @@ async def subscribe(sid, data):
 @sio.event(namespace=env.NS_TX)
 async def unsubscribe(sid, data):
     print(f'--- Unsubscribe TX ---: {sid} : {data}')
-    leave(sid, data, env.NS_TX)
+    await leave(sid, data, env.NS_TX)
 
 @sio.event(namespace=env.NS_TX)
 async def data(sid, data):

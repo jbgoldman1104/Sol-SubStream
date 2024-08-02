@@ -1,0 +1,17 @@
+pip install --upgrade pip setuptools wheel
+build-essential
+python3-dev
+
+psycopg[binary]
+redis
+socketio
+fastapi
+fastapi_socketio
+jinja2
+uvicorn
+aiohttp
+asyncio
+
+base58
+solders
+solana
