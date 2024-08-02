@@ -16,8 +16,8 @@ use substreams_solana::pb::sf::solana::r#type::v1::{
     ConfirmedTransaction, InnerInstructions, Transaction,
 };
 use trade_instruction::TradeInstruction;
-use utils::convert_to_date;
-use utils::get_mint_all;
+use utils::{convert_to_date, get_mint_all};
+// use utils::get_mint_all;
 mod trade_instruction;
 
 #[substreams::handlers::map]
@@ -49,7 +49,9 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                 let post_token_balances = meta.post_token_balances;
 
                 for (id, ti) in tis.into_iter().enumerate() {
-                    if tx_id == "2JhLFuj6J5QcEM2Nj4TrrD2idEBBfFQMAA9ATHHekqDDPQVXtN2yiTyia3tsmLA2fegXdgSGBVbvV8QkYjmHV7L8" {
+                    // if tx_id == "59eDpHgeozVwaN5t8z8wAm7C79CY91NeSUXvQd17hvkBdFXscD7X7hipHBcNRobQ8Lo5Nmoc1zUaBnfdSBWviQz9" {
+                    let decimal1 = get_decimals(&ti.vault_a, &post_token_balances, &accounts);
+                    let decimal2 = get_decimals(&ti.vault_b, &post_token_balances, &accounts);
                     data.push(TradeData {
                         block_date: convert_to_date(timestamp),
                         tx_id: tx_id.clone(),
@@ -57,19 +59,27 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                         block_time: timestamp,
                         signer: accounts.get(0).unwrap().to_string(),
                         pool_address: ti.amm.to_string(),
-                        base_mint: ti.base_mint.to_string(),
-                        quote_mint: ti.quote_mint.to_string(),
-                        base_amount: ti.base_amount,
-                        quote_amount: ti.quote_amount,
+                        base_mint: get_mint_all(
+                            &ti.vault_a,
+                            &pre_token_balances, &post_token_balances,
+                            &accounts,
+                        ),
+                        quote_mint: get_mint_all(
+                            &ti.vault_b,
+                            &pre_token_balances, &post_token_balances,
+                            &accounts,
+                        ),
+                        base_amount: ti.base_amount as f64/ 10.0_f64.powi(decimal1 as i32),
+                        quote_amount: ti.quote_amount as f64/ 10.0_f64.powi(decimal2 as i32),
                         base_vault: ti.vault_a.to_string(),
                         quote_vault: ti.vault_b.to_string(),
                         is_inner_instruction: false,
-                        instruction_index: id as u32,
-                        instruction_type: ti.i_type.to_string(),
+                        instruction_index: 0,
+                        instruction_type: ti.name.to_string(),
                         inner_instruction_index: 0,
                         outer_program: ti.dapp_address.to_string(),
                         inner_program: "".to_string(),
-                        txn_fee: 0,
+                        txn_fee: meta.fee,
                         signer_sol_change: get_signer_balance_change(
                             &pre_balances,
                             &post_balances,
@@ -77,7 +87,7 @@ fn process_block(block: Block) -> Result<Output, substreams::errors::Error> {
                         base_reserve: get_amt_reserve(&ti.vault_a, &post_token_balances, &accounts),
                         quote_reserve: get_amt_reserve(&ti.vault_b, &post_token_balances, &accounts),
                     });
-                }
+                // }
                 }
             }
         }
@@ -98,7 +108,8 @@ fn parse_tx(data: &mut Vec<TradeInstruction>, tx: &ConfirmedTransaction) {
 
         let structured_instructions = get_structured_instructions(&tx);
         for (idx, inst) in structured_instructions.into_iter().enumerate() {
-            get_trades(data, &inst, &accounts, &transaction);
+            let outer_program = &accounts[inst.program_id_index as usize];
+            get_trades(data, &inst, &accounts, &transaction, outer_program, &pre_token_balances, &post_token_balances);
         }
     }
 }
@@ -108,17 +119,19 @@ fn get_trades(
     inst: &StructuredInstruction,
     accounts: &Vec<String>,
     transaction: &Transaction,
+    outer_program: &String,
+    pre_token_balances: &Vec<TokenBalance>,
+    post_token_balances: &Vec<TokenBalance>,
 ) {
-    if let Some(ti) = parse_instruction(inst, accounts, transaction) {
+    if let Some(ti) = parse_instruction(inst, accounts, transaction, outer_program, pre_token_balances, post_token_balances) {
         let vault_a = ti.vault_a.clone();
         let vault_b = ti.vault_b.clone();
-
         // if ti.base_amount != 0.0 && ti.quote_amount != 0.0 {
         data.push(ti);
         // }
     } else {
-        for inst1 in &inst.inner_instructions {
-            get_trades(data, inst1, accounts, transaction);
+        for inner_inst in &inst.inner_instructions {
+            get_trades(data, inner_inst, accounts, transaction, outer_program, pre_token_balances, post_token_balances);
         }
     }
 }
@@ -127,44 +140,342 @@ fn parse_instruction(
     inst: &StructuredInstruction,
     accounts: &Vec<String>,
     transaction: &Transaction,
+    outer_program: &String,
+    pre_token_balances: &Vec<TokenBalance>,
+    post_token_balances: &Vec<TokenBalance>,
 ) -> Option<TradeInstruction> {
-    let ti = TradeInstruction {
-        amm: "1".to_string(),
-        dapp_address: "123".to_string(),
-        name: "123".to_string(),
-        vault_a: "123".to_string(),
-        vault_b: "123".to_string(),
-        base_mint: "123".to_string(),
-        quote_mint: "123".to_string(),
-        base_amount: 0.0,
-        quote_amount: 0.0,
-        i_type: "123".to_string(),
-    };
-    let result: Option<TradeInstruction> = Some(ti);
-    return result;
-    // let program = &accounts[inst.program_id_index as usize];
-    // let data = &inst.data();
-    // let input_accounts = prepare_input_accounts(&inst.accounts(), accounts);
+    // let ti = TradeInstruction {
+    //     amm: "1".to_string(),
+    //     dapp_address: "123".to_string(),
+    //     name: "123".to_string(),
+    //     vault_a: "123".to_string(),
+    //     vault_b: "123".to_string(),
+    //     base_mint: "123".to_string(),
+    //     quote_mint: "123".to_string(),
+    //     base_amount: 0.0,
+    //     quote_amount: 0.0,
+    //     i_type: "123".to_string(),
+    // };
+    // let result: Option<TradeInstruction> = Some(ti);
+    // return result;
+    let dapp_address = &accounts[inst.program_id_index as usize];
+    let input_accounts = prepare_input_accounts(&inst.accounts, accounts);
+    let is_inner = inst.stack_height > 0;
 
-    // let mut result = None;
-    // match dapp_address.as_str() {
-    //     "CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR" => {
-    //         result =
-    //             dapps::dapp_CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR::parse_trade_instruction(
-    //                 instruction_data,
-    //                 input_accounts,
-    //             );
-    //     }
-    //     "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" => {
-    //         result =
-    //             dapps::dapp_675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8::parse_trade_instruction(
-    //                 instruction_data,
-    //                 input_accounts,
-    //                 &post_token_balances,
-    //                 accounts,
-    //             );
-    //     }
-    // }
+
+    let mut result = None;
+    match dapp_address.as_str() {
+        "CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR" => {
+            result =
+                dapps::dapp_CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "Dooar9JkhdZ7J3LHN3A7YCuoGRUggXhQaG4kijfLGU2j" => {
+            result =
+                dapps::dapp_Dooar9JkhdZ7J3LHN3A7YCuoGRUggXhQaG4kijfLGU2j::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB" => {
+            result =
+                dapps::dapp_Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY" => {
+            result =
+                dapps::dapp_PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "SSwapUtytfBdBn1b9NUGG6foMVPtcWgpRU32HToDUZr" => {
+            result =
+                dapps::dapp_SSwapUtytfBdBn1b9NUGG6foMVPtcWgpRU32HToDUZr::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX" => {
+            let jupiter_dapps = vec![
+                "JUP2jxvXaqu7NQY1GmNF4m1vodw12LVXYxbFL2uJvfo".to_string(),
+                "JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB".to_string(),
+                "JUP3c2Uh3WA4Ng34tw6kPd2G4C5BB21Xo36Je1s32Ph".to_string(),
+                "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4".to_string(),
+                "JUP6i4ozu5ydDCnLiMogSckDPpbtr7BJ4FtzYWkb5Rk".to_string(),
+                "JUP5cHjnnCx2DppVsufsLrXs8EBZeEZzGtEK9Gdz6ow".to_string(),
+                "JUP5pEAZeHdHrLxh5UCwAbpjGwYKKoquCpda2hfP4u8".to_string(),
+            ];
+
+            if is_inner & jupiter_dapps.contains(outer_program) {
+                result =
+                dapps::dapp_srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+            }
+        }
+        "HyaB3W9q6XdA5xwpU4XnSZV94htfmbmqJXZcEbRaJutt" => {
+            result =
+                dapps::dapp_HyaB3W9q6XdA5xwpU4XnSZV94htfmbmqJXZcEbRaJutt::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" => {
+            result =
+                dapps::dapp_whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "EewxydAPCCVuNEyrVN68PuSYdQ7wKn27V9Gjeoi8dy3S" => {
+            result =
+                dapps::dapp_EewxydAPCCVuNEyrVN68PuSYdQ7wKn27V9Gjeoi8dy3S::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "2wT8Yq49kHgDzXuPxZSaeLaH1qbmGXtEyPy64bL7aD3c" => {
+            result =
+                dapps::dapp_2wT8Yq49kHgDzXuPxZSaeLaH1qbmGXtEyPy64bL7aD3c::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "SSwpkEEcbUqx4vtoEByFjSkhKdCT862DNVb52nZg1UZ" => {
+            result =
+                dapps::dapp_SSwpkEEcbUqx4vtoEByFjSkhKdCT862DNVb52nZg1UZ::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK" => {
+            result =
+                dapps::dapp_CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP" => {
+            result =
+                dapps::dapp_9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "AMM55ShdkoGRB5jVYPjWziwk8m5MpwyDgsMWHaMSQWH6" => {
+            result =
+                dapps::dapp_AMM55ShdkoGRB5jVYPjWziwk8m5MpwyDgsMWHaMSQWH6::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "CURVGoZn8zycx6FXwwevgBTB2gVvdbGTEpvMJDbgs2t4" => {
+            result =
+                dapps::dapp_CURVGoZn8zycx6FXwwevgBTB2gVvdbGTEpvMJDbgs2t4::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "cysPXAjehMpVKUapzbMCCnpFxUFFryEWEaLgnb9NrR8" => {
+            result =
+                dapps::dapp_cysPXAjehMpVKUapzbMCCnpFxUFFryEWEaLgnb9NrR8::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "7WduLbRfYhTJktjLw5FDEyrqoEv61aTTCuGAetgLjzN5" => {
+            result =
+                dapps::dapp_7WduLbRfYhTJktjLw5FDEyrqoEv61aTTCuGAetgLjzN5::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin" => {
+            let jupiter_dapps = vec![
+                "JUP2jxvXaqu7NQY1GmNF4m1vodw12LVXYxbFL2uJvfo".to_string(),
+                "JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB".to_string(),
+                "JUP3c2Uh3WA4Ng34tw6kPd2G4C5BB21Xo36Je1s32Ph".to_string(),
+                "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4".to_string(),
+                "JUP6i4ozu5ydDCnLiMogSckDPpbtr7BJ4FtzYWkb5Rk".to_string(),
+                "JUP5cHjnnCx2DppVsufsLrXs8EBZeEZzGtEK9Gdz6ow".to_string(),
+                "JUP5pEAZeHdHrLxh5UCwAbpjGwYKKoquCpda2hfP4u8".to_string(),
+            ];
+
+            if is_inner & jupiter_dapps.contains(outer_program) {
+                result =
+                dapps::dapp_9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+            }
+        }
+        "GFXsSL5sSaDfNFQUYsHekbWBW1TsFdjDYzACh62tEHxn" => {
+            result =
+                dapps::dapp_GFXsSL5sSaDfNFQUYsHekbWBW1TsFdjDYzACh62tEHxn::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "SSwpMgqNDsyV7mAgN9ady4bDVu5ySjmmXejXvy2vLt1" => {
+            result =
+                dapps::dapp_SSwpMgqNDsyV7mAgN9ady4bDVu5ySjmmXejXvy2vLt1::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "SCHAtsf8mbjyjiv4LkhLKutTf6JnZAbdJKFkXQNMFHZ" => {
+            result =
+                dapps::dapp_SCHAtsf8mbjyjiv4LkhLKutTf6JnZAbdJKFkXQNMFHZ::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "dp2waEWSBy5yKmq65ergoU3G6qRLmqa6K7We4rZSKph" => {
+            result =
+                dapps::dapp_dp2waEWSBy5yKmq65ergoU3G6qRLmqa6K7We4rZSKph::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "CTMAxxk34HjKWxQ3QLZK1HpaLXmBveao3ESePXbiyfzh" => {
+            result =
+                dapps::dapp_CTMAxxk34HjKWxQ3QLZK1HpaLXmBveao3ESePXbiyfzh::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "PSwapMdSai8tjrEXcxFeQth87xC4rRsa4VA5mhGhXkP" => {
+            result =
+                dapps::dapp_PSwapMdSai8tjrEXcxFeQth87xC4rRsa4VA5mhGhXkP::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "D3BBjqUdCYuP18fNvvMbPAZ8DpcRi4io2EsYHQawJDag" => {
+            result =
+                dapps::dapp_D3BBjqUdCYuP18fNvvMbPAZ8DpcRi4io2EsYHQawJDag::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "2KehYt3KsEQR53jYcxjbQp2d2kCp4AkuQW68atufRwSr" => {
+            result =
+                dapps::dapp_2KehYt3KsEQR53jYcxjbQp2d2kCp4AkuQW68atufRwSr::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" => {
+            result =
+                dapps::dapp_675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    &post_token_balances,
+                    accounts,
+                );
+        }
+        "27haf8L6oxUeXrHrgEgsexjSY5hbVUWEmvv9Nyxg8vQv" => {
+            result =
+                dapps::dapp_27haf8L6oxUeXrHrgEgsexjSY5hbVUWEmvv9Nyxg8vQv::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    &post_token_balances,
+                    accounts,
+                );
+        }
+        "BSwp6bEBihVLdqJRKGgzjcGLHkcTuzmSo1TQkHepzH8p" => {
+            result =
+                dapps::dapp_BSwp6bEBihVLdqJRKGgzjcGLHkcTuzmSo1TQkHepzH8p::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X" => {
+            result =
+                dapps::dapp_FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "9tKE7Mbmj4mxDjWatikzGAtkoWosiiZX9y6J4Hfm2R8H" => {
+            result =
+                dapps::dapp_9tKE7Mbmj4mxDjWatikzGAtkoWosiiZX9y6J4Hfm2R8H::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "MERLuDFBMmsHnsBPZw2sDQZHvXFMwp8EdjudcU2HKky" => {
+            result =
+                dapps::dapp_MERLuDFBMmsHnsBPZw2sDQZHvXFMwp8EdjudcU2HKky::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    &pre_token_balances,
+                    &post_token_balances,
+                    accounts,
+                );
+        }
+        "DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1" => {
+            result =
+                dapps::dapp_DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "6MLxLqiXaaSUpkgMnWDTuejNZEz3kE7k2woyHGVFw319" => {
+            result =
+                dapps::dapp_6MLxLqiXaaSUpkgMnWDTuejNZEz3kE7k2woyHGVFw319::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo" => {
+            result =
+                dapps::dapp_LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo::parse_trade_instruction(
+                    inst,
+                    input_accounts,
+                    accounts,
+                );
+        }
+        _ => {}
+    }
+    return result;
 }
 
 fn prepare_input_accounts(account_indices: &Vec<u8>, accounts: &Vec<String>) -> Vec<String> {
@@ -203,23 +514,36 @@ fn get_amt(
     return post_balance - pre_balance;
 }
 
+fn get_decimals(
+    address: &String,
+    token_balances: &Vec<TokenBalance>,
+    accounts: &Vec<String>,
+) -> u32 {
+    let index = accounts.iter().position(|r| r == address).unwrap();
+    let mut result: u32 = 0 as u32;
+    token_balances
+        .iter()
+        .filter(|token_balance| token_balance.account_index == index as u32)
+        .for_each(|token_balance: &TokenBalance| {
+            result = token_balance.ui_token_amount.clone().unwrap().decimals;
+        });
+    return result;
+}
+
 fn get_amt_reserve(
     address: &String,
     token_balances: &Vec<TokenBalance>,
     accounts: &Vec<String>,
 ) -> f64 {
-    return 1.0;
+    // return 1.0;
     let index = accounts.iter().position(|r| r == address).unwrap();
-
     let mut balance: f64 = 0 as f64;
-
     token_balances
         .iter()
         .filter(|token_balance| token_balance.account_index == index as u32)
         .for_each(|token_balance: &TokenBalance| {
             balance = token_balance.ui_token_amount.clone().unwrap().ui_amount;
         });
-
     return balance;
 }
 

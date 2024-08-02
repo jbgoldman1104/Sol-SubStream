@@ -1,14 +1,17 @@
 use substreams_solana::pb::sf::solana::r#type::v1::TokenBalance;
+use crate::structure::StructuredInstruction;
+use crate::structure::get_transfer_amounts;
 
 use crate::trade_instruction::TradeInstruction;
 
 pub fn parse_trade_instruction(
-    bytes_stream: Vec<u8>,
+    inst: &StructuredInstruction,
     input_accounts: Vec<String>,
     pre_token_balances: &Vec<TokenBalance>,
     post_token_balances: &Vec<TokenBalance>,
     accounts: &Vec<String>,
 ) -> Option<TradeInstruction> {
+    let bytes_stream = inst.data.clone();
     let (disc_bytes, rest) = bytes_stream.split_at(1);
     let discriminator: u8 = u8::from(disc_bytes[0]);
 
@@ -47,16 +50,15 @@ pub fn parse_trade_instruction(
                 (obj_a.1.clone(), obj_b.1.clone())
             };
 
+            let (base_amount, quote_amount) = get_transfer_amounts(inst, accounts, &vault_a, &vault_b);
             result = Some(TradeInstruction {
                 dapp_address: String::from("MERLuDFBMmsHnsBPZw2sDQZHvXFMwp8EdjudcU2HKky"),
                 name: String::from("Exchange"),
                 amm: accounts.get(0).unwrap().to_string(),
                 vault_a,
                 vault_b,
-                base_mint: "123".to_string(),
-                quote_mint: "123".to_string(),
-                base_amount: 0.0,
-                quote_amount: 0.0,
+                base_amount: base_amount,
+                quote_amount: quote_amount,
                 i_type: "123".to_string(),
             });
         }
