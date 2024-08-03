@@ -355,7 +355,7 @@ def query_price_realtime(address: str = "", address_type: str = "pair", type: st
     }
     
     
-def query_price_historical(address: str = "", address_type: str = "pair", type: str = '15m', time_from: int = 0, time_to: int = 0):
+def query_price_historical(address: str = "", address_type: str = "pair", type: str = '5m', time_from: int = 0, time_to: int = 0):
     _b('query_price_historical')
     interval = env.INTERVALS[type]
     if not address or not interval: return {}

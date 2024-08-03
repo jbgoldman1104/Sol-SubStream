@@ -73,6 +73,7 @@ def importT(r, filename: str):
 
 
 def init_redis():
+    print('-- init_redis process started. --')
     # r.xtrim("INIT_COMPLETE", maxlen = 0)
     _b('INIT')
 
