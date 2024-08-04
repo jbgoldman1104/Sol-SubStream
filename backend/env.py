@@ -70,8 +70,7 @@ INTERVALS = {
 
 
 API_KEY_TEST = "https://rpc.hellomoon.io/00f4178d-d782-4d0e-ac29-02706daa7be2"
-API_KEY1 = "https://empty-responsive-ensemble.solana-mainnet.quiknode.pro/d317177c944fa95629761e0484360b336177a75e/"
-API_KEY2 = "https://skilled-blissful-waterfall.solana-mainnet.quiknode.pro/d1bbbd179348df7e05a449d81fb7cdde96e589dc/"
+RPC_LIST = "https://empty-responsive-ensemble.solana-mainnet.quiknode.pro/d317177c944fa95629761e0484360b336177a75e/,https://mainnet.helius-rpc.com/?api-key=e4226aa3-24f7-43c1-869f-a1b1e3fbb148,https://fluent-side-isle.solana-mainnet.quiknode.pro/19a27fc1fa07c0a0aff254ef753b1ba030360b39,https://api.mainnet-beta.solana.com,https://skilled-blissful-waterfall.solana-mainnet.quiknode.pro/d1bbbd179348df7e05a449d81fb7cdde96e589dc/"
 
 NS_ST = '/socket.io/st'
 NS_TX = '/socket.io/tx'

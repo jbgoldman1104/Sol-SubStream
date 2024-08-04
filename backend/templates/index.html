@@ -151,7 +151,7 @@
                 '<div class="font-bold">' + (row["baseSymbol"] == "" ? formatString(row["baseMint"]) : row["baseSymbol"]) + "</div>" +
                 '<div class="mr-3 text-[#888]"> / ' + (row["quoteSymbol"] == "" ? formatString(row["quoteMint"]) : row["quoteSymbol"]) + "</div>" +
                 '<div class="flex flex-row items-center justify-center text-[14px] text-[#AAA]">' +
-                    // '<img src="' + row["baseImage"] + '" style="width:20px; height:20px; object-fit: cover; margin-right: 5px">' + 
+                    '<img src="' + row["baseImage"] + '" style="width:20px; height:20px; object-fit: cover; margin-right: 5px">' + 
                     row["baseName"] + 
                 '</div>' + 
                 '<a className="ml-2" style="margin-left: 10px" href="https://solscan.io/account/' + row["poolAddress"] +'" target="_blank">' +

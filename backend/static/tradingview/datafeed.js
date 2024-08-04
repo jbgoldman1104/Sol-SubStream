@@ -68,7 +68,8 @@ const TIMEZONE = {
   12.75: ['Pacific/Chatham'],
 };
 
-var firstBar, latestBar;
+var firstBar, prevBar, curBar;
+
 const resNames = {
   // minutes
   1: "1min",
@@ -139,9 +140,7 @@ const configurationData = {
   supported_resolutions: [
     // minutes
     "1",
-    "3",
     "5",
-    "15",
     "30",
     // hours
     "60",
@@ -242,51 +241,50 @@ const Datafeed = (pool) => {
       onErrorCallback
       // firstDataRequest
     ) => {
-      const resVal = resValues[resolution];
-	    const { from, to, firstDataRequest } = periodParams;
-    
+      const { from, to, firstDataRequest } = periodParams;
+
       try {
         socket.emit('data', {
-            type: "PRICE_DATA_HISTORICAL", 
-            data: {
-                address: pool, address_type: 'pair', type: resVal, time_from: from, time_to: to
-            }
+          type: "PRICE_DATA_HISTORICAL",
+          data: {
+            address: pool, address_type: 'pair', type: resValues[resolution], time_from: from, time_to: to
+          }
         }, (data) => {
-            console.log(data.type)
-            
-            if (data.data.length > 0) {
-              let bars = data.data.map((el) => {
-                let dd = new Date(el.unixTime * 1000);
-                return {
-                  time: dd.getTime(), //TradingView requires bar time in ms
-                  open: el.o,
-                  high: el.h,
-                  low: el.l,
-                  close: el.c,
-                  volume: el.v,
-                };
-              });
-              bars = bars.sort(function (a, b) {
-                if (a.time < b.time) return -1;
-                else if (a.time > b.time) return 1;
-                return 0;
-              });
-      
-              if (latestBar == undefined)
-                latestBar = bars[bars.length - 1];
+          console.log(data.type)
 
-              for(var i = 0; i < bars.length - 1; i++)
-                bars[i].close = bars[i+1].open;
-              if (firstBar != undefined)
-                bars[bars.length - 1].close = firstBar.open;
-              firstBar = bars[0];
-              
-              // window.delta = 0;
-      
-              onHistoryCallback(bars, { noData: false });
-            } else {
-              onHistoryCallback([], { noData: true });
-            }
+          if (data.data != undefined && data.data.length > 0) {
+            let bars = data.data.map((el) => {
+              let dd = new Date(el.unixTime * 1000);
+              return {
+                time: dd.getTime(), //TradingView requires bar time in ms
+                open: el.o,
+                high: el.h,
+                low: el.l,
+                close: el.c,
+                volume: el.v,
+              };
+            });
+            bars = bars.sort(function (a, b) {
+              if (a.time < b.time) return -1;
+              else if (a.time > b.time) return 1;
+              return 0;
+            });
+
+            if (prevBar == undefined)
+              prevBar = bars[bars.length - 1];
+
+            for (var i = 0; i < bars.length - 1; i++)
+              bars[i].close = bars[i + 1].open;
+            if (firstBar != undefined)
+              bars[bars.length - 1].close = firstBar.open;
+            firstBar = bars[0];
+
+            // window.delta = 0;
+
+            onHistoryCallback(bars, { noData: false });
+          } else {
+            onHistoryCallback([], { noData: true });
+          }
         })
 
       } catch (error) {
@@ -301,116 +299,39 @@ const Datafeed = (pool) => {
       onResetCacheNeededCallback,
       lastDailyBar
     ) => {
-      const parsedSymbol = parseFullSymbol(symbolInfo.full_name);
-      const channelString = `0~${parsedSymbol.exchange}~${parsedSymbol.fromSymbol}~${parsedSymbol.toSymbol}`;
-      const handler = {
-        id: subscribeUID,
-        callback: onRealtimeCallback,
-      };
-      let subscriptionItem = channelToSubscription.get(channelString);
-      if (subscriptionItem) {
-        // Already subscribed to the channel, use the existing subscription
-        subscriptionItem.handlers.push(handler);
-        return;
-      }
-      subscriptionItem = {
-        subscribeUID,
-        resolution,
-        lastDailyBar,
-        handlers: [handler],
-      };
-      channelToSubscription.set(channelString, subscriptionItem);
-      console.log(
-        "[subscribeBars]: Subscribe to streaming. Channel:",
-        channelString
-      );
-      socket.emit("SubAdd", { subs: channelString });
-      // const resName = sendResolutions[resolution];
-      // const symbolName = symbolInfo.name;
-      // console.log('[rec]', symbolInfo.name, resolution, resName)
-
-      // try {
-      //   let ws = new WebSocket(`wss://ws.twelvedata.com/v1/quotes/price?apikey=${API_KEY}`);
-      //   ws.onopen = (e) => {
-      //     window.delta = 0;
-      //     console.log('[ws onopen]');
-      //     let sendData = {
-      //       "action": "subscribe",
-      //       "params": {
-      //         "symbols": [{
-      //           "symbol": symbolName,
-      //           "exchange": "NASDAQ",
-      //           "price": true
-      //         }],
-      //         "event": "price"
-      //       }
-      //     }
-      //     ws.send(JSON.stringify(sendData));
-      //   }
-
-      //   ws.onmessage = e => {
-      //     let transaction = JSON.parse(e.data);
-
-      //     console.log('[onmsg]', transaction);
-      //     if (transaction.event == 'price') {
-      //       const seconds = INTERVAL_SECONDS[convertResolution(resolution)]
-
-      //       var txTime = Math.floor(transaction.timestamp / seconds) * seconds * 1000 - (1440 + 30) * 60 * 1000
-      //       console.log('[input_time]', printDate(latestBar.time), printDate(txTime));
-
-      //       var current = new Date();
-      //       // var d_time = (current.getDate() * 86400 + current.getHours() * 3600 + current.getMinutes() * 60) - (current.getUTCDate() * 86400 + current.getUTCHours() * 3600 + current.getUTCMinutes() * 60) + 73800;
-      //       var d_time = (16 * 60 + 30) * 60 * 1000;
-
-      //       if(window.delta == 0) {
-      //         window.delta = latestBar.time - txTime;
-      //       }
-
-      //       txTime += window.delta;
-
-      //       console.log("[delta time]", printDate(latestBar.time), printDate(txTime));
-
-      //       if (latestBar && txTime == latestBar.time) {
-      //         latestBar.close = transaction.price
-      //         if (transaction.price > latestBar.high) {
-      //           latestBar.high = transaction.price
-      //         }
-
-      //         if (transaction.price < latestBar.low) {
-      //           latestBar.low = transaction.price
-      //         }
-
-      //         latestBar.volume += transaction.day_volume
-      //         console.log('[update bar]', printDate(latestBar.time));
-      //         onRealtimeCallback(latestBar)
-      //       } else if (latestBar && txTime > latestBar.time) {
-      //         const newBar = {
-      //           low: transaction.price,
-      //           high: transaction.price,
-      //           open: transaction.price,
-      //           close: transaction.price,
-      //           volume: transaction.day_volume,
-      //           time: txTime
-      //         }
-      //         latestBar = newBar
-      //         console.log('[new Bar]', printDate(newBar.time))
-      //         onRealtimeCallback(newBar)
-      //       }
-
-      //       // lastBar.time
-      //     }
-
-      //   }
-
-      //   ws.onclose = function () {
-      //     console.log('[onclose]');
-      //   }
-
-      // } catch (err) {
-      //   console.log(err);
-      // }
-      // // Code here...
-      // window.resetCacheNeededCallback = onResetCacheNeededCallback;
+      socket.emit('subscribe', {
+        type: "SUBSCRIBE_PRICE",
+        data: {
+          address: pool, address_type: 'pair', type: resValues[resolution]
+        }
+      })
+      socket.on('PRICE_DATA', (data) => {
+        console.log(data.type)
+        if (data.type == 'PRICE_DATA') {
+          if (data != undefined && data.data != undefined) {
+            let el = data.data;
+            let dd = new Date(el.unixTime * 1000);
+            let bar = {
+              time: dd.getTime(), //TradingView requires bar time in ms
+              open: el.o,
+              high: el.h,
+              low: el.l,
+              close: el.c,
+              volume: el.v,
+            };
+            if (curBar != undefined && bar.time != curBar.time) {
+              prevBar = curBar;
+            }
+            curBar = bar;
+            if (prevBar != undefined) {
+              bar.open = prevBar.close;
+            }
+            onRealtimeCallback(bar)
+          } else {
+            console.log(data)
+          }
+        }
+      })
     },
     unsubscribeBars: (subscriberUID) => {
       // Code here...

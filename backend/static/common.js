@@ -42,3 +42,20 @@ function formatString(str, displayCount = 4) {
 function formatDPrice(num) {
     return num
 }
+
+function formatDate(unixTimestamp) {
+    // Create a new Date object from the Unix timestamp
+    // Note: Unix timestamp is in seconds, but JavaScript Date uses milliseconds
+    const date = new Date(unixTimestamp * 1000);
+
+    // Get the components of the date
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    // Construct the formatted string
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}

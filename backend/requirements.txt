@@ -14,4 +14,4 @@ asyncio
 
 base58
 solders
-solana
+solana==0.28.1

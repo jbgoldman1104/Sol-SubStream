@@ -37,8 +37,6 @@
             <a class="bg-white inline-block py-2 px-4 text-[black] hover:text-blue-800 font-semibold" href="#" onclick="switchTab(event, 'tab2')">Holders</a>
             </li>
             <li class="mr-1">
-            <a class="bg-white inline-block py-2 px-4 text-[black] hover:text-blue-800 font-semibold" href="#" onclick="switchTab(event, 'tab3')">Tab 3</a>
-            </li>
         </ul>
         <!-- Tab content -->
         <div id="tab1" class="tab-content">
@@ -157,7 +155,7 @@
         function getTxRowString(row) {
             return '<div class="data_row hover:bg-[#3A3A44] cursor-pointer flex mx-auto w-full text-[16px] bg-[#1D1D22]">' +
                         '<div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[220px] h-[35px] pr-2 justify-center text-[#848489] text-right"> ' +
-                            formatDate(Number(row["blockUnixTime"]) * 1000) +
+                            formatDate(Number(row["blockUnixTime"])) +
                         '</div>\
                         <div class="data_cell flex items-center border border-solid border-t-[transparent] border-[#2E2E33] w-[120px] h-[35px] pr-2 justify-center ' +
                             ((row["from"]["type"] == "Buy" || row["from"]["type"] == "Add") ? "text-[#48BB78]" : "text-[#F56565]") + ' text-right">' + row["from"]["type"] + '</div>\

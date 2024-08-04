@@ -1,8 +1,10 @@
+# @ -1,200 +1,200 @@
 import sys
 from solders.pubkey import Pubkey
+from solders.keypair import Keypair
+from solana.rpc.async_api import AsyncClient
 from solana.rpc.api import Client
 from spl.token.client import Token
-from solders.keypair import Keypair
 from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
 
 import base64
@@ -24,12 +26,16 @@ if env.USE_PG:
     cur = conn.cursor()
 #TODO: get your own solana rpc node
 #devnet
-solana_clients = [Client(env.API_KEY1), Client(env.API_KEY2)]
+clients = [Client(key) for key in env.RPC_LIST.split(',')]
 cnt = 0
 
 METADATA_PROGRAM_ID = Pubkey.from_string('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
 def get_nft_pda(mint_key):
-    pda = Pubkey.find_program_address([b'metadata', bytes(METADATA_PROGRAM_ID), bytes(Pubkey.from_string(mint_key))],METADATA_PROGRAM_ID)[0]
+    pda = Pubkey.find_program_address([
+        b'metadata', 
+        bytes(METADATA_PROGRAM_ID), 
+        bytes(Pubkey.from_string(mint_key))
+        ], METADATA_PROGRAM_ID)[0]
     return pda
 
 def unpack_metadata_account(data):
@@ -89,22 +95,31 @@ def unpack_metadata_account(data):
     }
     return metadata
 
-def get_metadata(id, mint_key):
-    data = base64.b64decode(solana_clients[id % len(solana_clients)].get_account_info(get_nft_pda(mint_key))['result']['value']['data'][0]) # type: ignore
-    return(unpack_metadata_account(data))
+def get_metadata(client, mint_address):
+    metadata_pda = Pubkey.find_program_address(
+        [b"metadata", 
+         bytes(Pubkey.from_string("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")),
+         bytes(Pubkey.from_string(mint_address))],
+        Pubkey.from_string("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+    )[0]
+    response = client.get_account_info(metadata_pda)
+    # decoded = base64.b64decode(response.value.data)
+    meta = unpack_metadata_account(response.value.data)
+    return meta
         
 def get_nft(id, mint_key):
     try:
-        meta = get_metadata(id, mint_key)['data']
+        client = clients[id % len(clients)]
+        meta = get_metadata(client, mint_key)['data']
         # client = Client(env.API_KEY_TEST)
-        token = Token(solana_clients[id % len(solana_clients)], Pubkey.from_string(mint_key), TOKEN_PROGRAM_ID, Keypair())
+        token = Token(client, Pubkey.from_string(mint_key), TOKEN_PROGRAM_ID, Keypair())
         info = token.get_mint_info()
         try:  # TODO slow
             uri_data = requests.get(meta['uri']).json()
         except:
             uri_data = {}
         
-    except:
+    except Exception as e:
         return None    #probably not a nft
     return (id, mint_key, meta['name'], meta['symbol'], meta['uri'], meta['seller_fee_basis_points'], [val.decode() for val in meta['creators']], meta['verified'], meta['share'],
             str(info.mint_authority) if info.mint_authority else None, info.supply, info.decimals, info.supply / (10.0 ** info.decimals), info.is_initialized,
@@ -194,6 +209,6 @@ async def token_thread():
 
 if __name__ == "__main__":
     asyncio.run(token_thread())
-    # print(get_nft('123', "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1"))
+    # print(get_nft(1, "4ytpZgVoNB66bFs6NRCUaAVsLdtYk2fHq4U92Jnjpump"))
 
 

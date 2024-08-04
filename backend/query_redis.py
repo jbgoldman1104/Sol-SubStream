@@ -13,16 +13,12 @@ cur = conn.cursor()
 def convert_to_custom_format(number):
     # Convert number to string and split into integer and fractional parts
     integer_part, fractional_part = str(number).split('.')
-    
     # Check how many leading zeros in the fractional part
     leading_zeros = len(fractional_part) - len(fractional_part.lstrip('0'))
-    
     # Get the subscript character for the number of leading zeros
     subscript_char = ''.join(chr(8272 + int(digit)) for digit in str(leading_zeros))
-    
     # Construct the final string with the custom format
     result = f"{integer_part}.0{subscript_char}{fractional_part[leading_zeros:]}"
-    
     return result
 
 def query_wrap(ns, js, payload = None):
@@ -270,11 +266,11 @@ def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, li
                 "amount": abs(row['baseAmount']),
                 "type": row['type'],
                 "typeSwap": row['instructionType'],
-                "uiAmount": abs(row['baseAmount']) / (10.0 ** ts[0]['decimals']),
+                "uiAmount": abs(row['baseAmount']) / max(1.0, (10.0 ** ts[0]['decimals'])),
                 "price": row['price'],
                 "nearestPrice": row['price'], # ?
                 "changeAmount": row['baseAmount'],
-                "uiChangeAmount": row['baseAmount'] / (10.0 ** ts[0]['decimals']),
+                "uiChangeAmount": row['baseAmount'] / max(1.0, (10.0 ** ts[0]['decimals'])),
                 "icon": ts[0]['image']
             },
             "to": {
@@ -284,11 +280,11 @@ def query_tx_realtime(payload, address: str = "", filter = "", skip: int = 0, li
                 "amount": abs(row['quoteAmount']),
                 "type": row['type'], #"Buy" if row['type'] == "Sell" else "Sell",
                 "typeSwap": row['instructionType'],
-                "uiAmount": abs(row['quoteAmount']) / (10.0 ** ts[1]['decimals']),
+                "uiAmount": abs(row['quoteAmount']) / max(1.0, (10.0 ** ts[1]['decimals'])),
                 "price": row['price'] * abs(row['baseAmount'] / row['quoteAmount']),
                 "nearestPrice": row['price'] * abs(row['baseAmount'] / row['quoteAmount']), # ?
                 "changeAmount": row['quoteAmount'],
-                "uiChangeAmount": row['quoteAmount'] / (10.0 ** ts[1]['decimals']),
+                "uiChangeAmount": row['quoteAmount'] / max(1.0, (10.0 ** ts[1]['decimals'])),
                 "icon": ts[1]['image']
             },
         })
