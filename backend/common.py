@@ -41,7 +41,21 @@ def newP():
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 
-def toP(r: redis.Redis, row: tuple):
+def dexToId(cur, r, dex: str):
+    id = r.hget('H_D', dex)
+    if not id:  # New Token!
+        id = r.hlen('H_D') + 1
+        # print(f"new dex {dex} => {id}")
+        r.hset('H_D', dex, id)
+        rows = [toD((id, dex, '', ''))]
+        r.json().mset(rows)
+        r.lpush('L_DEXES', f'{id},{dex}')
+        # input_pg.write_dexes(cur, rows)
+    else:
+        id = int(id.decode())
+    return id
+
+def toP(cur, r: redis.Redis, row: tuple):
     if len(row) == 6:
         newRow = newP()
         newRow[0] = row[0]
@@ -50,16 +64,11 @@ def toP(r: redis.Redis, row: tuple):
         dexImage = ""
         outerProgram = row[5]
         if outerProgram:
-            did = r.hget('H_D', outerProgram)
-            if not did:
-                did = r.hlen('H_D') + 1
-                r.hset('H_D', outerProgram, did)
-            else:
-                did = int(did.decode())
-                dex = r.json().get(f'D:{did}')
-                if dex:
-                    dexImage = dex['image']
-                    dex = dex['name']
+            did = dexToId(cur, r, outerProgram)
+            dex = r.json().get(f'D:{did}')
+            if dex:
+                dexImage = dex['image']
+                dex = dex['name']
         newRow[14] = dex
         newRow[15] = dexImage
         newRow[16] = outerProgram
@@ -237,7 +246,7 @@ def poolToId(cur, r, pool: str, pair: str = "", outerProgram = "" ):
         r.hset('H_P', pool, pid)
         split = pair.split('/')
         # r.hset('H_P2M', pool, pair)
-        newP = toP(r, (pid, split[0], split[1], pool, nows(), outerProgram))
+        newP = toP(cur, r, (pid, split[0], split[1], pool, nows(), outerProgram))
         r.json().mset([newP])
 
         # -- For Sorting --

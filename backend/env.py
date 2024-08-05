@@ -31,10 +31,14 @@ NUM_REQUESTS = 1
 NUM_DURATIONS = len(DURATION)
 EXPIRE_TIME = 86400
 
+from pathlib import Path
+BASE_DIR = Path(__file__).parent
+PROJ_DIR = BASE_DIR.parent
+
 # --- exported files ---
-FILENAME_D = '/root/torres/Sol-SubStream/fileD.json'
-FILENAME_T = '/root/torres/Sol-SubStream/fileT.json'
-FILENAME_FailedT = '/root/torres/Sol-SubStream/fileFailedT.json'
+FILENAME_D = str(Path(BASE_DIR, 'fileD.json'))
+FILENAME_T = str(Path(BASE_DIR, 'fileT.json'))
+FILENAME_FailedT = str(Path(BASE_DIR, 'fileFailedT.json'))
 
 SEC = 1             # original or sec(1d)
 MIN = 60 * SEC      # min(1d)

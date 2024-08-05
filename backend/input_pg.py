@@ -55,7 +55,7 @@ def read_pairs(cur, r):
         rows = cur.fetchmany(env.DB_READ_SIZE * 10)
         if not rows: break
         r.hmset('H_P', {row[1]: row[8] for row in rows})
-        r.json().mset([common.toP(r, row) for row in rows])
+        r.json().mset([common.toP(cur, r, row) for row in rows])
 
 
 pair_columns = """

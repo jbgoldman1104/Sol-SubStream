@@ -83,7 +83,7 @@ async def update_thread():
             new_txs_sel = []
             if __: _b('1')
             for tx in new_txs:
-                if tx[2]['instructionType'] != "Liquidity" and tx[2]['outerProgram'] != 'FqGg2Y1FNxMiGd51Q6UETixQWkF5fB92MysbYogRJb3P':
+                if tx[2]['instructionType'] != "Liquidity": #and tx[2]['outerProgram'] != 'FqGg2Y1FNxMiGd51Q6UETixQWkF5fB92MysbYogRJb3P'
                     if common.isUSD(tx[2]['quoteMint']) and common.isSOL(tx[2]['baseMint']) and tx[2]['baseAmount'] != 0 and tx[2]['quoteAmount'] != 0 and tx[2]['poolAddress'] == 'B6LL9aCWVuo1tTcJoYvCTDqYrq1vjMfci8uHxsm4UxTR':
                         solPrice = abs(tx[2]['quoteAmount'] / tx[2]['baseAmount']) * (1 if common.isUSDT(tx[2]['quoteMint']) else 0.999632)
                     tx[2]["price"] = common.getPrice(solPrice, tx[2]["baseAmount"], tx[2]['quoteAmount'], tx[2]['baseMint'], tx[2]['quoteMint'])
@@ -163,8 +163,8 @@ async def update_thread():
                     p_update[p]['cSupply'] = p_update[p]['tSupply'] -  tx[2]["baseReserve"]
                     continue
                 
-                if tx[2]['price'] <= 10 * p_update[p]['price']:
-                    p_update[p]['price'] = tx[2]['price']
+                # if tx[2]['price'] <= 10 * p_update[p]['price']:
+                p_update[p]['price'] = tx[2]['price']
                 p_update[p]['liq'] = tx[2]["quoteReserve"] * 2
                 p_update[p]['mcap'] = (p_update[p]['tSupply'] or 1e9) * p_update[p]['price']  # TODO with T:*
                 
@@ -200,7 +200,7 @@ async def update_thread():
                 # -- Assert dex info --
                 if not p_update[p]['dex']:
                     p_update[p]['outerProgram'] = tx[2]['outerProgram']
-                    dex = r.json().get(f'D:{tx[2]["outerProgram"]}')
+                    dex = r.json().get(f'D:{common.dexToId(cur, r, tx[2]["outerProgram"])}')
                     if dex:
                         p_update[p]['dex'] = dex['name']
                         p_update[p]['dexImage'] = dex['image']

@@ -40,7 +40,18 @@ function formatString(str, displayCount = 4) {
 }
 
 function formatDPrice(num) {
-    return num
+    rlt = num;
+    num = Number(num) * 100;
+    if (num >= 1e9) {
+        rlt = (num / 1e9).toFixed(1) + "B";
+    } else if (num >= 1e6) {
+        rlt = (num / 1e6).toFixed(1) + "M";
+    } else if (num >= 1e3) {
+        rlt = (num / 1e3).toFixed(1) + "K";
+    } else {
+        rlt = num.toPrecision(3);
+    }
+    return rlt;
 }
 
 function formatDate(unixTimestamp) {

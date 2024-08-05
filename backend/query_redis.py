@@ -470,10 +470,10 @@ def query_holders(address: str = "", address_type = "pair", skip: int = 0, limit
     return rlt
 
 if __name__ == "__main__":
-    # print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
+    print(search_pair('2q9AQurvcdjCyxArPmRt26rXx3NBc2RrcDh2grx7aWZb'))
     # print(common.getMintAddresses(r, '1'))
     # print(query_chart('A1BBtTYJd4i3xU8D6Tc2FzU6ZN4oXZWXKZnCxwbHXr8x', 1718629188, 1718727888, 2))
     # print(query_chart('2mCaQrTySFYQtmrKxQxMHBdqHnm2mTx9hMRUbFuNz4Jx', 0, 0, 2))
-    print(query_tx_historical('EENwNvk2asNwFSyke3nU9NwCHj1ad7R1gyuHZrZY743G'))
+    # print(query_tx_historical('EENwNvk2asNwFSyke3nU9NwCHj1ad7R1gyuHZrZY743G'))
     # print(query_holders('eQV2ucvHe1MFu7gG9kCJLPPzHPdXcq4auLNanz6ZXBQ', 'pair', 0, 10))
     pass

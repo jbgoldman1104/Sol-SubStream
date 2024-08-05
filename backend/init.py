@@ -45,7 +45,9 @@ def importD(r, filename: str):
                 except Exception as e:
                     print("input file type error: " + str(e) + ":    " + line)
                     file.write('\n')
-    if len(rows) > 0: r.json().mset(rows)
+    if len(rows) > 0:
+        # r.json().mset(rows)
+        input_pg.write_dexes(cur, rows)
     
 def importT(r, filename: str):
     if not os.path.exists(filename):
@@ -68,7 +70,9 @@ def importT(r, filename: str):
                 except Exception as e:
                     print("input file type error: " + str(e) + ":    " + line)
                     file.write('\n')
-    if len(rows) > 0: r.json().mset(rows)
+    if len(rows) > 0:
+        # r.json().mset(rows)
+        input_pg.write_tokens(cur, rows)
     # ts == line.split('^')
 
 
@@ -227,14 +231,16 @@ def init_redis():
                 "image" VARCHAR(255)
                 )
             """)
+        # --- Import D:, H_D ---
+        importD(r, env.FILENAME_D)
     conn.commit()
 
     # --------------------- Import Data From PG ---------------------
     _, keys = r.scan(match='TX:*', count=1)
     if len(keys) == 0:
         input_pg.read_txs(cur, r)
-    if not r.exists('H_D'):
-        input_pg.read_dexes(cur, r)
+    # if not r.exists('H_D'):
+    input_pg.read_dexes(cur, r)
     if not r.exists('H_T'):
         input_pg.read_tokens(cur, r)
     if not r.exists('H_P'):
@@ -243,8 +249,6 @@ def init_redis():
         input_pg.read_wallets(cur, r)
     
 
-    # --- Import D:, H_D ---
-    # importD(r, env.FILENAME_D)
 
     # --- Import T:, H_T ---
     # importT(r, env.FILENAME_T)
