@@ -13,7 +13,7 @@ import socketio
 #     socketio.AsyncRedisManager(f'redis://{env.REDIS_HOST}:{env.REDIS_PORT}/0', write_only=True)
 
 def connect_redis():
-    return redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT)
+    return redis.Redis(host = env.REDIS_HOST, port = env.REDIS_PORT, password = env.REDIS_PASS)
 
 def connect_db():
     return psycopg.connect(host = env.DB_HOST, port = env.DB_PORT, dbname = env.DB_NAME, user = env.DB_USER, password = env.DB_PASS)
@@ -179,7 +179,7 @@ def toW(row: tuple):
 def toD(row: tuple):
     return (f"D:{row[0]}", ".", {"id": row[0], "address": row[1], "name": row[2], "image": f'{row[3] if row[3] else "solana/solana.svg"}'})
 
-def toT(row: tuple|list):
+def toT(row):
     return (f"T:{row[0]}", ".", {"id": row[0], "mint": row[1], "name": row[2], "symbol": row[3], "uri": row[4], "seller_fee_basis_points": row[5],
                                 "creators": row[6], "verified": row[7], "share": row[8],  "mint_authority": row[9], "supply": row[10], 
                                 "decimals": row[11], "supply_real": row[12], "is_initialized": row[13], "freeze_authority": row[14],
@@ -193,7 +193,7 @@ def defaultTValue(id, mint: str):
 def defaultT(id, mint: str):
     return toT(defaultTValue(id, mint))
 
-def toW(row: tuple|list):
+def toW(row):
     return (f"W:{row[0]}", ".", {"id": row[0], "address": row[1], "tid": row[2], "buy": row[3], "sell": row[4], "remain": row[5],
                                 "buyUSD": row[6], "sellUSD": row[7], "lastTx": row[8],
                 })

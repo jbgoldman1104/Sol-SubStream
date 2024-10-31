@@ -3,19 +3,14 @@ DOMAIN = 'http://localhost:8000'
 # DOMAIN = 'https://memetrend.united-crypto.xyz'
 
 REDIS_HOST = 'localhost'
-# REDIS_PORT = 12000
-REDIS_PORT = 6379
+REDIS_PORT = 9438
+REDIS_PASS = 'b2dErksi2RaPer6kSne9vkw'
 
-# DB_HOST = 'solana-dex-trade.cv6oeci62jkj.eu-north-1.rds.amazonaws.com'
-# DB_PORT = 5432
-# DB_NAME = 'dex_trade'
-# DB_USER = 'postgres'
-# DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
 DB_HOST = 'localhost'
 DB_PORT = 5432
-DB_NAME = 'postgres'
-DB_USER = 'postgres'
-DB_PASS = 'lOkPF4Rz0rFy6IdMdrUk'
+DB_NAME = 'substream'
+DB_USER = 'substream'
+DB_PASS = 'koheitorres'
 
 UPDATE_INTERVAL = 2000
 # DURATION = (1 * 6, 2 * 6, 3 * 6, 4 * 6)

@@ -22,7 +22,7 @@
   "license": "MIT",
   "scripts": {
     "start": "tsc && node ./dist/bin/cli.js run",
-    "test": "node ./dist/bin/cli.js run -e mainnet.sol.streamingfast.io:443  --manifest /root/torres/Sol-SubStream/dex-trades/substreams.yaml --module-name map_block -s 138616676 -t +1",
+    "test": "node ./dist/bin/cli.js run -e mainnet.sol.streamingfast.io:443  --manifest /work/Sol-SubStream/dex-trades/substreams.yaml --module-name map_block -s 138616676 -t +1",
     "build": "tsc",
     "rollup": "rollup --config rollup.config.mjs",
     "linux": "npm run build && npm run rollup && ./scripts/build.linux.sh",
